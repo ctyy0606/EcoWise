@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.env
+venv/
+.venv/
+
+# 数据库和本地数据（Render 免费实例重启会丢失，生产环境建议用 PostgreSQL）
+*.db
+*.sqlite3
+Ecowise/
+
+# VAPID 密钥（已生成的密钥不要提交）
+vapid_public_key.txt
+vapid_private_key.txt
+vapid_public.pem
+vapid_private.pem
+
+# 日志
+*.log
