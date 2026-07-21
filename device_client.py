@@ -110,6 +110,11 @@ def get_device_data(device_id: str) -> Dict:
     result = status_resp.get("result", []) or []
     print(f"[device_client] 设备 {device_id} DP状态: {result}")
 
+    # 兼容处理：涂鸦云 online 字段可能延迟，如果能拉到 DP 状态则认为设备在线
+    if not is_online and result:
+        is_online = True
+        print(f"[device_client] 设备 {device_id} DP状态可用，修正在线状态为在线")
+
     power_raw = None
     add_ele_raw = None
     voltage_raw = None

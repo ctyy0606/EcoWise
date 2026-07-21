@@ -81,6 +81,59 @@ def _get_weather_by_ip(client_ip=None):
     except Exception:
         return None
 
+# 常见城市名，用于从用户消息中提取
+CHINESE_CITIES = [
+    '北京', '上海', '广州', '深圳', '杭州', '南京', '苏州', '成都', '武汉', '西安',
+    '重庆', '天津', '长沙', '郑州', '青岛', '大连', '厦门', '福州', '合肥', '济南',
+    '宁波', '无锡', '佛山', '东莞', '昆明', '沈阳', '长春', '哈尔滨', '石家庄', '太原',
+    '南昌', '南宁', '贵阳', '兰州', '海口', '乌鲁木齐', '拉萨', '银川', '西宁', '呼和浩特',
+    '香港', '澳门', '台北'
+]
+
+
+def _extract_city(text):
+    """从用户消息中提取中国城市名"""
+    for city in CHINESE_CITIES:
+        if city in text:
+            return city
+    return None
+
+
+def _get_weather_by_city(city_name):
+    """通过城市名获取天气（Open-Meteo 免费 geocoding + forecast）"""
+    try:
+        # 1. 地理编码
+        geo_url = f'https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=zh&format=json'
+        geo_resp = requests.get(geo_url, timeout=5)
+        geo_data = geo_resp.json()
+        results = geo_data.get('results', [])
+        if not results:
+            return None
+        lat = results[0].get('latitude')
+        lon = results[0].get('longitude')
+        city = results[0].get('name', city_name)
+
+        # 2. 获取天气
+        weather_resp = requests.get(
+            f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true',
+            timeout=5
+        )
+        weather = weather_resp.json().get('current_weather', {})
+        code = weather.get('weathercode', 0)
+        weather_desc = WEATHER_CODES.get(code, '未知')
+        temp = weather.get('temperature', 0)
+        wind = weather.get('windspeed', 0)
+
+        return {
+            'city': city,
+            'weather': weather_desc,
+            'temp': temp,
+            'wind': wind,
+        }
+    except Exception:
+        return None
+
+
 SYSTEM_PROMPT = """你是 EcoWise 宿舍管家，名字叫小E。
 你是同学们贴心的宿舍生活全能助手，性格温柔、佛系、可爱，像一位很会照顾人但从不 push 的室友。
 
@@ -167,7 +220,7 @@ SYSTEM_PROMPT = """你是 EcoWise 宿舍管家，名字叫小E。
    每次随机选一种。
 2. 话题规则：用户聊什么话题就回答什么话题，绝不把话题扯到用电上。聊天气就只聊天气，聊学习就只聊学习。
 3. 用电数据规则：只有当用户明确询问用电相关问题时，才使用下方提供的用电数据。
-4. 天气规则：如果下方提供了"当前天气"数据，直接使用它来回答天气问题，不要再问用户所在城市。
+4. 天气规则：如果下方提供了"当前天气"数据，直接使用它来回答天气问题，不要再问用户所在城市；如果用户消息中已包含城市名（如"北京天气"），直接使用该城市返回的天气；如果天气数据显示"无法获取"，诚实告知用户当前无法查询天气，建议查看天气应用或稍后再试。
 5. 时间规则：如果用户问现在几点，根据系统消息中的"当前时间"回答，不要编造。
 6. 诚实规则：遇到不确定的问题，诚实说"我不太确定"，不要编造。涉及具体学校政策时，建议用户查看学校官方通知。
 7. 隐私规则：不询问、不泄露用户的个人敏感信息。
@@ -352,9 +405,17 @@ def chat(user_message, owner=None, client_ip=None, history=None):
     # 只在用户问天气相关问题时才获取天气数据（避免每次对话都慢）
     weather_info = ""
     if any(kw in user_message for kw in WEATHER_KEYWORDS):
-        weather = _get_weather_by_ip(client_ip)
+        # 优先按用户提到的城市名查询，否则按 IP 定位
+        city = _extract_city(user_message)
+        weather = None
+        if city:
+            weather = _get_weather_by_city(city)
+        if not weather:
+            weather = _get_weather_by_ip(client_ip)
         if weather:
             weather_info = f"【当前天气】{weather['city']}，{weather['weather']}，气温{weather['temp']}°C，风速{weather['wind']}km/h"
+        else:
+            weather_info = "【当前天气】无法获取当前天气信息，请确认城市名或网络连接"
 
     full_context = "\n".join([time_info, weather_info, context])
     messages = [

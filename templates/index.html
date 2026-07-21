@@ -370,7 +370,6 @@
         <h1>EcoWise 宿舍助理</h1>
         <p>智能用电管理 · AI 助手</p>
         <div class="user-info">
-            <a href="#" id="push-toggle-btn" class="logout-btn" onclick="togglePushSubscription();return false;" style="margin-right:8px;background:#7ba890;">🔔 开启推送</a>
             <a href="#" class="logout-btn" onclick="doLogout();return false;">退出</a>
         </div>
     </div>
@@ -838,7 +837,6 @@
                 document.getElementById('history-today').style.display = 'block';
                 document.getElementById('history-month').style.display = 'none';
                 document.getElementById('history-carbon').style.display = 'none';
-                document.getElementById('history-schedule').style.display = 'none';
                 loadToday();
             }
             else if (tabName === 'bill') {
@@ -863,7 +861,8 @@
                 document.getElementById('weekly-report-area').textContent = '';
                 document.getElementById('weekly-report-summary').innerHTML = '';
                 currentReportType = 'personal';
-                document.getElementById('space-selector-container').style.display = 'none';
+                const reportStepSpace = document.getElementById('report-step-space');
+                if (reportStepSpace) reportStepSpace.style.display = 'none';
             }
         }
 
@@ -887,15 +886,42 @@
         let currentUsername = '';
         let isRefreshing = false;
 
+        // 前端数据缓存，避免 tab 之间反复请求
+        const dataCache = {
+            devices: { data: null, timestamp: 0 },
+            today: { data: null, timestamp: 0 },
+            month: { data: null, timestamp: 0 },
+            carbon: { data: null, timestamp: 0 }
+        };
+        const DATA_CACHE_TTL_MS = 10000; // 10 秒内重复切换不重新请求
+
+        function isCacheValid(key) {
+            const entry = dataCache[key];
+            return entry && entry.data && (Date.now() - entry.timestamp) < DATA_CACHE_TTL_MS;
+        }
+
+        function setCache(key, data) {
+            dataCache[key] = { data: data, timestamp: Date.now() };
+        }
+
+        function invalidateCache(key) {
+            if (dataCache[key]) dataCache[key] = { data: null, timestamp: 0 };
+        }
+
         function switchDevice() {
             const selector = document.getElementById('device-selector');
             selectedDeviceId = selector.value;
+            invalidateCache('today');
+            invalidateCache('month');
+            invalidateCache('carbon');
             refreshData(true);
             if (document.getElementById('tab-history').style.display !== 'none') {
                 if (document.getElementById('history-today').style.display !== 'none') {
                     loadToday();
-                } else {
+                } else if (document.getElementById('history-month').style.display !== 'none') {
                     loadMonth();
+                } else {
+                    loadCarbon();
                 }
             }
         }
@@ -1184,6 +1210,19 @@
             const values = (data || []).map(d => d[valueField] || 0);
             const hasData = values.some(v => v > 0);
 
+            // 计算 Y 轴刻度，确保始终显示 5 条水平网格线
+            const maxValue = Math.max(...values, 0);
+            let yMax = maxValue * 1.1;
+            if (yMax === 0) yMax = 1;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(yMax)));
+            const normalized = yMax / magnitude;
+            let niceMax;
+            if (normalized <= 1) niceMax = magnitude;
+            else if (normalized <= 2) niceMax = 2 * magnitude;
+            else if (normalized <= 5) niceMax = 5 * magnitude;
+            else niceMax = 10 * magnitude;
+            const stepSize = niceMax / 5;
+
             const ctx = canvas.getContext('2d');
 
             if (enableScroll) {
@@ -1247,10 +1286,12 @@
                         },
                         y: {
                             grid: { color: gridColor },
+                            min: 0,
+                            max: niceMax,
                             ticks: { 
                                 color: axisColor, 
                                 font: { size: 10 },
-                                maxTicksLimit: maxTicks,
+                                stepSize: stepSize,
                                 callback: function(value) {
                                     return value.toFixed(2);
                                 }
@@ -1294,21 +1335,28 @@
             }
         }
 
+        function renderTodayData(data) {
+            document.getElementById('today-total').textContent = parseFloat(data.total_kwh || 0).toFixed(3);
+            const hourly = data.hourly || [];
+            const labels = hourly.map(h => h.hour + '时');
+            drawChart('today-chart', hourly, labels, 'kwh', '度', true, 5);
+            document.getElementById('today-loading').style.display = 'none';
+            document.getElementById('today-content').style.display = 'block';
+        }
+
         async function loadToday() {
+            if (isCacheValid('today')) {
+                renderTodayData(dataCache.today.data);
+                loadTodayViolations();
+                return;
+            }
             document.getElementById('today-loading').style.display = 'block';
             document.getElementById('today-content').style.display = 'none';
             try {
                 const res = await fetch('/api/today?device_id=' + encodeURIComponent(selectedDeviceId || ''));
                 const data = await res.json();
-                document.getElementById('today-total').textContent = parseFloat(data.total_kwh || 0).toFixed(3);
-
-                const hourly = data.hourly || [];
-                const labels = hourly.map(h => h.hour + '时');
-                drawChart('today-chart', hourly, labels, 'kwh', '度', true, 5);
-
-                document.getElementById('today-loading').style.display = 'none';
-                document.getElementById('today-content').style.display = 'block';
-
+                setCache('today', data);
+                renderTodayData(data);
                 loadTodayViolations();
             } catch (e) {
                 document.getElementById('today-loading').textContent = '加载失败: ' + e.message;
@@ -1332,28 +1380,54 @@
             }
         }
 
+        function renderMonthData(data) {
+            document.getElementById('month-total').textContent = parseFloat(data.total_kwh || 0).toFixed(3);
+            const daily = data.daily || [];
+            const labels = daily.map(d => d.dateShort + '日');
+            drawChart('month-chart', daily, labels, 'kwh', '度', true, 5);
+            document.getElementById('month-loading').style.display = 'none';
+            document.getElementById('month-content').style.display = 'block';
+        }
+
         async function loadMonth() {
+            if (isCacheValid('month')) {
+                renderMonthData(dataCache.month.data);
+                loadMonthViolations();
+                return;
+            }
             document.getElementById('month-loading').style.display = 'block';
             document.getElementById('month-content').style.display = 'none';
             try {
                 const res = await fetch('/api/month?device_id=' + encodeURIComponent(selectedDeviceId || ''));
                 const data = await res.json();
-                document.getElementById('month-total').textContent = parseFloat(data.total_kwh || 0).toFixed(3);
-
-                const daily = data.daily || [];
-                const labels = daily.map(d => d.dateShort + '日');
-                drawChart('month-chart', daily, labels, 'kwh', '度', true, 5);
-
-                document.getElementById('month-loading').style.display = 'none';
-                document.getElementById('month-content').style.display = 'block';
-
+                setCache('month', data);
+                renderMonthData(data);
                 loadMonthViolations();
             } catch (e) {
                 document.getElementById('month-loading').textContent = '加载失败: ' + e.message;
             }
         }
 
+        function renderCarbonData(today, week, total) {
+            document.getElementById('carbon-today').textContent = parseFloat(today.carbon_kg || 0).toFixed(3);
+            document.getElementById('carbon-today-kwh').textContent = parseFloat(today.total_kwh || 0).toFixed(3);
+            document.getElementById('carbon-total').textContent = parseFloat(total.carbon_kg || 0).toFixed(3);
+            document.getElementById('carbon-trees').textContent = parseFloat(total.trees_equivalent || 0).toFixed(2);
+
+            const daily = week.daily || [];
+            const labels = daily.map(d => d.dateShort + '日');
+            drawChart('carbon-chart', daily, labels, 'carbon_kg', null, false, 5);
+
+            document.getElementById('carbon-loading').style.display = 'none';
+            document.getElementById('carbon-content').style.display = 'block';
+        }
+
         async function loadCarbon() {
+            if (isCacheValid('carbon')) {
+                const cached = dataCache.carbon.data;
+                renderCarbonData(cached.today, cached.week, cached.total);
+                return;
+            }
             document.getElementById('carbon-loading').style.display = 'block';
             document.getElementById('carbon-content').style.display = 'none';
             try {
@@ -1367,17 +1441,8 @@
                 const week = await weekRes.json();
                 const total = await totalRes.json();
 
-                document.getElementById('carbon-today').textContent = parseFloat(today.carbon_kg || 0).toFixed(3);
-                document.getElementById('carbon-today-kwh').textContent = parseFloat(today.total_kwh || 0).toFixed(3);
-                document.getElementById('carbon-total').textContent = parseFloat(total.carbon_kg || 0).toFixed(3);
-                document.getElementById('carbon-trees').textContent = parseFloat(total.trees_equivalent || 0).toFixed(2);
-
-                const daily = week.daily || [];
-                const labels = daily.map(d => d.dateShort + '日');
-                drawChart('carbon-chart', daily, labels, 'carbon_kg', null, false, 5);
-
-                document.getElementById('carbon-loading').style.display = 'none';
-                document.getElementById('carbon-content').style.display = 'block';
+                setCache('carbon', { today, week, total });
+                renderCarbonData(today, week, total);
             } catch (e) {
                 document.getElementById('carbon-loading').textContent = '加载失败: ' + e.message;
             }
@@ -2308,6 +2373,7 @@
                 const res = await fetch('/api/notifications/unread_count');
                 const data = await res.json();
                 const badge = document.getElementById('notif-badge');
+                if (!badge) return;
                 const count = data.count || 0;
                 if (count > 0) {
                     badge.textContent = count > 99 ? '99+' : count;
@@ -2323,7 +2389,8 @@
             if (panel.style.display === 'none') {
                 panel.style.display = 'block';
                 await fetch('/api/notifications/read_all', { method: 'POST' }).catch(() => {});
-                document.getElementById('notif-badge').style.display = 'none';
+                const badge = document.getElementById('notif-badge');
+                if (badge) badge.style.display = 'none';
                 await loadNotifications();
             } else {
                 panel.style.display = 'none';
@@ -2356,7 +2423,8 @@
         async function markAllRead() {
             try {
                 await fetch('/api/notifications/read_all', { method: 'POST' });
-                document.getElementById('notif-badge').style.display = 'none';
+                const badge = document.getElementById('notif-badge');
+                if (badge) badge.style.display = 'none';
                 await loadNotifications();
             } catch (e) {}
         }
