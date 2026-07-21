@@ -2258,7 +2258,7 @@
 
         async function checkLogin() {
             try {
-                const res = await fetch('/api/current_user');
+                const res = await fetch('/api/current_user', { credentials: 'include' });
                 const data = await res.json();
                 if (data.logged_in) {
                     showApp(data.username);
@@ -2421,7 +2421,8 @@
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, password })
+                    body: JSON.stringify({ phone, password }),
+                    credentials: 'include'
                 });
                 const data = await res.json();
                 if (data.success) {
