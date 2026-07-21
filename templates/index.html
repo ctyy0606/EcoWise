@@ -860,7 +860,6 @@
             </div>
         </div>
     </div>
-    </div>
 
     <script>
         // 全局错误捕获：手机浏览器如果 JS 崩溃，把错误显示出来
@@ -902,6 +901,22 @@
                 const btnContainer = document.createElement('div');
                 btnContainer.style.cssText = 'display:flex;gap:10px;';
                 const confirmBtn = document.createElement('button');
+                confirmBtn.textContent = '确认';
+                confirmBtn.className = 'btn';
+                confirmBtn.onclick = function() { document.body.removeChild(overlay); resolve(true); };
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '取消';
+                cancelBtn.className = 'btn';
+                cancelBtn.onclick = function() { document.body.removeChild(overlay); resolve(false); };
+                btnContainer.appendChild(confirmBtn);
+                btnContainer.appendChild(cancelBtn);
+                modal.appendChild(msg);
+                modal.appendChild(btnContainer);
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+            });
+        }
+
         function showTab(tabName) {
             document.querySelectorAll('#main-tabs .tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-btn-' + tabName).classList.add('active');

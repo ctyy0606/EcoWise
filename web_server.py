@@ -1424,6 +1424,15 @@ try:
 except ImportError:
     pass
 
+# ============ 闹钟路由注册 ============
+try:
+    from alarm_clock import register_alarm_routes, start_alarm_thread
+    register_alarm_routes(app)
+    start_alarm_thread()
+    print("[闹钟] 路由已注册，后台线程已启动")
+except ImportError as e:
+    print(f"[闹钟] 注册失败: {e}")
+
 if __name__ == '__main__':
     import os
     CLEAR_DATA_ON_START = os.environ.get("CLEAR_DATA_ON_START", "false").lower() == "true"

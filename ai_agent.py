@@ -151,6 +151,7 @@ SYSTEM_PROMPT = """你是 EcoWise 宿舍管家，名字叫小E。
 6. 学习生活：考试周复习建议、时间管理、压力调节、专注力提升
 7. 日常生活：洗衣晾晒、宿舍清洁、饮食健康、收纳整理
 8. 季节关怀：换季提醒、防蚊防虫、冬季保暖、夏季防暑
+9. 闹钟提醒：用户说"提醒我XXX"时，按以下闹钟规则处理
 
 【宿舍用电规则知识库】
 1. 电费分摊规则：
@@ -216,8 +217,15 @@ SYSTEM_PROMPT = """你是 EcoWise 宿舍管家，名字叫小E。
 3. 用电数据规则：只有当用户明确询问用电相关问题时，才使用下方提供的用电数据。
 4. 天气规则：如果下方提供了"当前天气"数据，直接使用它来回答天气问题，不要再问用户所在城市；如果用户消息中已包含城市名（如"北京天气"），直接使用该城市返回的天气；如果天气数据显示"无法获取"，诚实告知用户当前无法查询天气，建议查看天气应用或稍后再试。
 5. 时间规则：如果用户问现在几点，根据系统消息中的"当前时间"回答，不要编造。
-6. 诚实规则：遇到不确定的问题，诚实说"我不太确定"，不要编造。涉及具体学校政策时，建议用户查看学校官方通知。
+6. 老实规则：遇到不确定的问题，老实说"我不太确定"，不要编造。涉及具体学校政策时，建议用户查看学校官方通知。
 7. 隐私规则：不询问、不泄露用户的个人敏感信息。
+8. 闹钟提醒规则：当用户说出"提醒我XXX"、"设置闹钟"、"叫我XXX"等类似表达时，你必须做以下事情：
+   - 第一步：从用户消息中提取闹钟提醒内容（如"去上课"、"收衣服"、"睡觉"等）
+   - 第二步：从用户消息中提取时间信息（如"明天早上8点"、"今晚10点"、"30分钟后"等）
+   - 第三步：在回复中明确告诉用户"已设置闹钟，将在【具体时间】提醒你【具体内容】"
+   - 如果用户只说"提醒我XXX"但没有说时间，用"今天"询问用户具体时间
+   - 格式示例：用户说"提醒我明天早上8点去上课"，你回复"好的，已设置闹钟，明天早上8点会提醒你去上课哦~"
+   - 注意：闹钟是真实可用的，系统会在设定的时间通过浏览器推送通知提醒用户，所以请诚实告知用户闹钟已设置成功
 
 【注意事项】
 - 如果用电数据下方有提供，直接用
@@ -425,8 +433,26 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
     result = resp.json()
 
     if "choices" in result and len(result["choices"]) > 0:
-        return result["choices"][0]["message"]["content"]
+        reply = result["choices"][0]["message"]["content"]
     elif "error" in result:
         return f"AI服务返回错误：{result['error'].get('message', '未知错误')}"
     else:
         return "AI服务返回异常，请稍后再试。"
+
+    # ============ 闹钟处理 ============
+    # 如果用户消息包含闹钟关键词，自动解析并设置闹钟
+    alarm_keywords = ["提醒我", "提醒我", "叫我", "闹钟", "定时", "到点", "到时"]
+    if any(kw in user_message for kw in alarm_keywords):
+        try:
+            from alarm_clock import parse_alarm_from_text, add_alarm
+            alarm_info = parse_alarm_from_text(user_message)
+            if alarm_info["has_alarm"] and alarm_info["remind_at"]:
+                result = add_alarm(owner or "", alarm_info["remind_at"], alarm_info["message"])
+                if result["success"]:
+                    reply += f"\n\n（系统已自动设置闹钟：{alarm_info['remind_at']} 提醒你「{alarm_info['message']}」）"
+                else:
+                    reply += f"\n\n（闹钟设置失败：{result['message']}）"
+        except Exception as e:
+            print(f"[AI闹钟] 处理失败: {e}")
+
+    return reply
