@@ -9,3 +9,5 @@ services:
         value: 3.11.0
       - key: FLASK_ENV
         value: production
+      - key: CLEAR_DATA_ON_START
+        value: "false"

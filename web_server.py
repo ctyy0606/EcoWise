@@ -1443,7 +1443,8 @@ def api_push_send_test():
 
 
 if __name__ == '__main__':
-    CLEAR_DATA_ON_START = True
+    import os
+    CLEAR_DATA_ON_START = os.environ.get("CLEAR_DATA_ON_START", "false").lower() == "true"
 
     if CLEAR_DATA_ON_START:
         import os as _os, json as _json
