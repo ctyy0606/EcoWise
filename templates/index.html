@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#2d5a40">
     <link rel="manifest" href="/static/manifest.json">
     <title>EcoWise 宿舍助理</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="window.chartJsFailed=true"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #f0f8f5; min-height: 100vh; }
@@ -739,6 +739,30 @@
     </div>
 
     <script>
+        // 全局错误捕获：手机浏览器如果 JS 崩溃，把错误显示出来
+        window.onerror = function(msg, url, line, col, err) {
+            var el = document.getElementById('global-error-bar');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'global-error-bar';
+                el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#f8d7da;color:#721c24;padding:10px;z-index:9999;font-size:12px;max-height:120px;overflow:auto;';
+                document.body.appendChild(el);
+            }
+            el.innerHTML += '<div>JS错误: ' + msg + ' (line ' + line + ')</div>';
+        };
+
+        // 统一封装 fetch，默认携带 cookie，解决跨域登录状态丢失
+        (function() {
+            var originalFetch = window.fetch;
+            window.fetch = function(url, options) {
+                options = options || {};
+                if (options.credentials === undefined) {
+                    options.credentials = 'include';
+                }
+                return originalFetch(url, options);
+            };
+        })();
+
         function isDarkMode() {
             return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
@@ -1209,7 +1233,6 @@
                                 }
                             }
                         },
-                    }
                     },
                     scales: {
                         x: {
