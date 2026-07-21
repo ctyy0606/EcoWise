@@ -586,7 +586,9 @@ def api_ai():
         history = data.get('history', [])
         owner = _current_nickname()
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history)
+        user_lat = session.get('user_lat')
+        user_lng = session.get('user_lng')
+        reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history, user_lat=user_lat, user_lng=user_lng)
         return jsonify({"reply": reply})
     except Exception as e:
         return jsonify({"reply": "抱歉，AI 服务暂时不可用: " + str(e)}), 500
@@ -1395,6 +1397,32 @@ def api_test_push():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+
+# ============ 用户位置 API ============
+@app.route('/api/user/location', methods=['POST'])
+@login_required
+def api_user_location():
+    """接收用户浏览器定位，存到 session 中供 AI 天气查询使用"""
+    try:
+        data = request.get_json() or {}
+        lat = data.get('lat')
+        lng = data.get('lng')
+        if lat is not None and lng is not None:
+            session['user_lat'] = lat
+            session['user_lng'] = lng
+            return jsonify({"success": True, "message": "位置已保存"})
+        return jsonify({"success": False, "message": "缺少经纬度"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ============ 模拟模式路由注册 ============
+try:
+    from simulation import register_simulation_routes
+    register_simulation_routes(app)
+    print("[模拟模式] 路由已注册")
+except ImportError:
+    pass
 
 if __name__ == '__main__':
     import os

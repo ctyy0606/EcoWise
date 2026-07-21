@@ -1,0 +1,4 @@
+    <div id="simulation-bar" style="display:none;background:linear-gradient(135deg,#ff9a56,#ff6b6b);color:white;padding:8px 16px;text-align:center;font-size:13px;border-radius:0 0 8px 8px;margin:0 10px;">
+      🔴 <strong>模拟模式已开启</strong> - 当前场景：<span id="sim-scene-name">自定义</span>
+      <button onclick="toggleSimulation()" style="margin-left:10px;background:white;color:#ff6b6b;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">关闭模拟</button>
+    </div>

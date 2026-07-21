@@ -13,6 +13,9 @@ import config
 
 
 _openapi: Optional[TuyaOpenAPI] = None
+_last_connect_time: float = 0.0
+# Token 大约 2 小时过期，提前 10 分钟刷新
+TOKEN_REFRESH_SECONDS: float = 6600.0
 
 # 设备数据缓存，按设备ID存储，避免频繁调用涂鸦云 API
 # 格式: { device_id: { "data": {...}, "timestamp": float } }
@@ -21,16 +24,23 @@ CACHE_TTL_SECONDS: float = 3.0
 
 
 def _get_openapi() -> TuyaOpenAPI:
-    """获取(或首次创建)涂鸦云连接对象。"""
-    global _openapi
-    if _openapi is None:
-        _openapi = TuyaOpenAPI(
-            config.API_ENDPOINT,
-            config.ACCESS_ID,
-            config.ACCESS_SECRET,
-        )
-        _openapi.connect()
-        print("[涂鸦云] 已建立连接")
+    """获取(或首次创建)涂鸦云连接对象；token 快过期时自动刷新。"""
+    global _openapi, _last_connect_time
+    now = time.time()
+    if _openapi is None or (now - _last_connect_time) > TOKEN_REFRESH_SECONDS:
+        try:
+            _openapi = TuyaOpenAPI(
+                config.API_ENDPOINT,
+                config.ACCESS_ID,
+                config.ACCESS_SECRET,
+            )
+            _openapi.connect()
+            _last_connect_time = now
+            print(f"[涂鸦云] 已建立连接 (token 刷新)")
+        except Exception as e:
+            print(f"[涂鸦云] 连接失败: {e}")
+            if _openapi is None:
+                raise e
     return _openapi
 
 
@@ -88,19 +98,39 @@ def get_device_data(device_id: str) -> Dict:
             "test_mode": True,
         }
 
+    global _openapi
     api = _get_openapi()
 
     # 1) 先查设备信息(判断在线状态)
     info = {}
     is_online = False
     info_success = False
+    api_call_errors = []
     try:
         info_resp = api.get(f"/v1.0/devices/{device_id}")
         info_success = info_resp.get("success", False)
         info = info_resp.get("result", {}) or {}
         is_online = info.get("online", False)
+        if not info_success:
+            api_call_errors.append(f"设备信息API返回失败: {info_resp.get('msg', '未知错误')}")
     except Exception as e:
+        error_msg = str(e)
+        api_call_errors.append(f"设备信息查询异常: {error_msg}")
         print(f"[device_client] 设备 {device_id} 信息查询失败: {e}")
+        # token 过期时尝试重连一次
+        if "token" in error_msg.lower() or "auth" in error_msg.lower() or "expir" in error_msg.lower():
+            print(f"[device_client] 检测到 token 问题，尝试重连...")
+            _openapi = None
+            try:
+                api = _get_openapi()
+                info_resp = api.get(f"/v1.0/devices/{device_id}")
+                info_success = info_resp.get("success", False)
+                info = info_resp.get("result", {}) or {}
+                is_online = info.get("online", False)
+                api_call_errors = []
+                print(f"[device_client] 重连后设备信息查询: success={info_success}")
+            except Exception as e2:
+                print(f"[device_client] 重连后仍失败: {e2}")
 
     # 2) 拉取设备 DP 状态
     result = []
@@ -109,8 +139,26 @@ def get_device_data(device_id: str) -> Dict:
         status_resp = api.get(f"/v1.0/devices/{device_id}/status")
         status_success = status_resp.get("success", False)
         result = status_resp.get("result", []) or []
+        if not status_success:
+            api_call_errors.append(f"状态API返回失败: {status_resp.get('msg', '未知错误')}")
     except Exception as e:
+        error_msg = str(e)
+        api_call_errors.append(f"状态查询异常: {error_msg}")
         print(f"[device_client] 设备 {device_id} 状态查询失败: {e}")
+        if "token" in error_msg.lower() or "auth" in error_msg.lower() or "expir" in error_msg.lower():
+            _openapi = None
+            try:
+                api = _get_openapi()
+                status_resp = api.get(f"/v1.0/devices/{device_id}/status")
+                status_success = status_resp.get("success", False)
+                result = status_resp.get("result", []) or []
+                api_call_errors = []
+                print(f"[device_client] 重连后状态查询: success={status_success}, DP数={len(result)}")
+            except Exception as e2:
+                print(f"[device_client] 重连后状态查询仍失败: {e2}")
+
+    if api_call_errors:
+        print(f"[device_client] 设备 {device_id} API调用错误: {'; '.join(api_call_errors)}")
 
     print(f"[device_client] 设备 {device_id} 信息接口: {info_success}, 在线字段: {is_online}, 状态接口: {status_success}, DP数: {len(result)}")
 

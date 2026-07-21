@@ -334,6 +334,86 @@
         .ai-message {
             animation: fadeIn 0.3s ease-out;
         }
+
+        /* === 动画与UI美化 === */
+        .btn, button {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+        .tab-content {
+            animation: fadeSlideIn 0.3s ease;
+        }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .data-card {
+            transition: all 0.3s ease;
+        }
+        .data-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(123,168,144,0.15);
+        }
+        .loading-spinner {
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .notif-panel {
+            animation: slideDown 0.25s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .device-card {
+            transition: all 0.25s ease;
+        }
+        .device-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        input:focus, select:focus {
+            transition: all 0.3s ease;
+            border-color: #7ba890 !important;
+            box-shadow: 0 0 0 3px rgba(123,168,144,0.15) !important;
+            outline: none;
+        }
+        .switch-toggle {
+            transition: all 0.3s ease;
+        }
+        @media (max-width: 768px) {
+            .data-card { padding: 12px; }
+            .tab-btn { padding: 10px 12px; font-size: 13px; }
+            .quick-btn { padding: 5px 10px; font-size: 11px; }
+        }
+        .quick-btn {
+            background: #f0f7f4;
+            color: #2d5a40;
+            border: 1px solid #a4e4ce;
+            padding: 6px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .quick-btn:hover {
+            background: #7ba890;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(123,168,144,0.3);
+        }
+        .quick-btn:active {
+            transform: scale(0.95);
+        }
     </style>
 </head>
 <body>
@@ -391,6 +471,10 @@
         <div class="tab" id="tab-btn-ai" onclick="showTab('ai')">AI助手</div>
         <div class="tab" id="tab-btn-devices" onclick="showTab('devices')">设备管理</div>
     </div>
+    <div id="simulation-bar" style="display:none;background:linear-gradient(135deg,#ff9a56,#ff6b6b);color:white;padding:8px 16px;text-align:center;font-size:13px;border-radius:0 0 8px 8px;margin:0 10px;">
+      🔴 <strong>模拟模式已开启</strong> - 当前场景：<span id="sim-scene-name">自定义</span>
+      <button onclick="toggleSimulation()" style="margin-left:10px;background:white;color:#ff6b6b;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">关闭模拟</button>
+    </div>
 
     <div class="content">
         <div id="tab-realtime">
@@ -411,6 +495,18 @@
                         <div class="data-item"><div class="data-label">电流</div><div class="data-value"><span id="current-value">0</span> <span class="data-label">mA</span></div></div>
                         <div class="data-item"><div class="data-label">温度</div><div class="data-value"><span id="temperature-value">--</span> <span class="data-label">℃</span></div></div>
                         <div class="data-item"><div class="data-label">湿度</div><div class="data-value"><span id="humidity-value">--</span> <span class="data-label">%</span></div></div>
+                    </div>
+                    <div id="led-buzzer-row" style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                      <div class="data-card" style="flex:1;min-width:140px;text-align:center;">
+                        <div style="font-size:13px;color:#666;margin-bottom:6px;">💡 LED指示灯</div>
+                        <div id="led-indicator" style="width:32px;height:32px;border-radius:50%;background:#4caf50;margin:8px auto;box-shadow:0 0 12px rgba(76,175,80,0.6);transition:all 0.5s;"></div>
+                        <div id="led-text" style="font-size:13px;color:#4caf50;font-weight:bold;">正常</div>
+                      </div>
+                      <div class="data-card" style="flex:1;min-width:140px;text-align:center;">
+                        <div style="font-size:13px;color:#666;margin-bottom:6px;">🔊 蜂鸣器</div>
+                        <div id="buzzer-icon" style="font-size:32px;margin:8px auto;transition:all 0.3s;">🔇</div>
+                        <div id="buzzer-text" style="font-size:13px;color:#999;font-weight:bold;">静音</div>
+                      </div>
                     </div>
                     <div id="violation-status"></div>
                 </div>
@@ -613,6 +709,18 @@
                 <div id="weekly-report-summary" style="display:none;margin-top:10px;"></div>
                 <button class="btn" id="hide-report-btn" style="display:none;margin-top:10px;background:#ccc;color:#333;" onclick="hideWeeklyReport()">收起周报</button>
             </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 4px;">
+                  <button id="location-btn" onclick="requestLocation()" class="quick-btn" style="background:#fff3e0;border-color:#ffb74d;color:#e65100;">📍 授权位置查天气</button>
+                  <span style="font-size:11px;color:#999;">授权后可查本地天气</span>
+                </div>
+                <div id="quick-questions" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding:0 4px;">
+                  <button onclick="sendQuickQuestion('现在天气怎么样？')" class="quick-btn">🌤️ 天气查询</button>
+                  <button onclick="sendQuickQuestion('我现在的用电情况如何？')" class="quick-btn">⚡ 用电情况</button>
+                  <button onclick="sendQuickQuestion('怎么省电？给些建议')" class="quick-btn">💡 省电技巧</button>
+                  <button onclick="sendQuickQuestion('本周我的电费大概多少？')" class="quick-btn">💰 电费预估</button>
+                  <button onclick="sendQuickQuestion('最近有没有违规用电的情况？')" class="quick-btn">⚠️ 违规查询</button>
+                  <button onclick="sendQuickQuestion('今晚熬夜会有什么影响？')" class="quick-btn">🌙 作息提醒</button>
+                </div>
 
             <div class="card">
                 <div class="card-title">AI 智能助手</div>
@@ -726,6 +834,30 @@
                     <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelPairDevices()">取消</button>
                 </div>
             </div>
+            <div id="simulation-panel" style="margin-top:20px;background:white;border-radius:12px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+                <h3 style="color:#2d5a40;margin-bottom:15px;">🎮 模拟模式（演示用）</h3>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                    <span>模拟模式开关：</span>
+                    <button id="sim-toggle-btn" onclick="toggleSimulation()" style="background:#7ba890;color:white;border:none;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:14px;transition:all 0.3s;">开启模拟模式</button>
+                </div>
+                <div id="sim-scenes" style="display:none;">
+                    <p style="color:#666;font-size:13px;margin-bottom:8px;">选择预设场景：</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px;" id="sim-scene-buttons">
+                    </div>
+                    <p style="color:#666;font-size:13px;margin-bottom:8px;">自定义数据（可选）：</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="sim-custom-form">
+                        <div><label style="font-size:12px;">功率(W)</label><input type="number" id="sim-power" placeholder="150" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">电压(V)</label><input type="number" id="sim-voltage" placeholder="220" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">电流(mA)</label><input type="number" id="sim-current" placeholder="680" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">温度(℃)</label><input type="number" id="sim-temp" placeholder="25" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">湿度(%)</label><input type="number" id="sim-humidity" placeholder="55" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">LED颜色</label><select id="sim-led" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="green">🟢 绿色(正常)</option><option value="yellow">🟡 黄色(预警)</option><option value="red">🔴 红色(告警)</option><option value="off">⚫ 熄灭</option></select></div>
+                        <div><label style="font-size:12px;">蜂鸣器</label><select id="sim-buzzer" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="false">🔇 关闭</option><option value="true">🔊 鸣响</option></select></div>
+                        <div><label style="font-size:12px;">开关状态</label><select id="sim-switch" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="true">开启</option><option value="false">关闭</option></select></div>
+                    </div>
+                    <button onclick="applyCustomSimulation()" style="margin-top:10px;background:#7ba890;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">应用自定义数据</button>
+                </div>
+            </div>
         </div>
     </div>
     </div>
@@ -770,62 +902,18 @@
                 const btnContainer = document.createElement('div');
                 btnContainer.style.cssText = 'display:flex;gap:10px;';
                 const confirmBtn = document.createElement('button');
-                confirmBtn.textContent = '确认';
-                confirmBtn.className = 'btn';
-                confirmBtn.style.marginTop = '0';
-                const cancelBtn = document.createElement('button');
-                cancelBtn.textContent = '取消';
-                cancelBtn.className = 'btn';
-                cancelBtn.style.marginTop = '0';
-                cancelBtn.style.background = '#ccc';
-                cancelBtn.style.color = '#333';
-                confirmBtn.onclick = () => { overlay.remove(); resolve(true); };
-                cancelBtn.onclick = () => { overlay.remove(); resolve(false); };
-                btnContainer.appendChild(confirmBtn);
-                btnContainer.appendChild(cancelBtn);
-                modal.appendChild(msg);
-                modal.appendChild(btnContainer);
-                overlay.appendChild(modal);
-                document.body.appendChild(overlay);
-            });
-        }
-
-        function customAlert(message) {
-            return new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
-                const modal = document.createElement('div');
-                modal.className = 'custom-modal';
-                const msg = document.createElement('p');
-                msg.textContent = message;
-                const btn = document.createElement('button');
-                btn.textContent = '确认';
-                btn.className = 'btn';
-                btn.style.marginTop = '0';
-                btn.onclick = () => { overlay.remove(); resolve(); };
-                modal.appendChild(msg);
-                modal.appendChild(btn);
-                overlay.appendChild(modal);
-                document.body.appendChild(overlay);
-            });
-        }
-
         function showTab(tabName) {
             document.querySelectorAll('#main-tabs .tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-btn-' + tabName).classList.add('active');
 
-            document.getElementById('tab-realtime').style.display = 'none';
-            document.getElementById('tab-history').style.display = 'none';
-            document.getElementById('tab-bill').style.display = 'none';
-            document.getElementById('tab-ai').style.display = 'none';
-            document.getElementById('tab-devices').style.display = 'none';
-
-            document.getElementById('tab-' + tabName).style.display = 'block';
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            const targetTab = document.getElementById('tab-' + tabName);
+            if (targetTab) targetTab.style.display = 'block';
 
             if (tabName === 'realtime') refreshData();
             else if (tabName === 'history') {
                 document.querySelectorAll('#history-tabs .tab').forEach(t => t.classList.remove('active'));
-                const todayTab = document.querySelector('#history-tabs .tab');
+                const todayTab = document.querySelector('#history-tabs .tab');  
                 if (todayTab) todayTab.classList.add('active');
                 document.getElementById('history-today').style.display = 'block';
                 document.getElementById('history-month').style.display = 'none';
@@ -834,10 +922,10 @@
             }
             else if (tabName === 'bill') {
                 document.querySelectorAll('#bill-tabs .tab').forEach(t => t.classList.remove('active'));
-                const myTab = document.querySelector('#bill-tabs .tab');
+                const myTab = document.querySelector('#bill-tabs .tab');        
                 if (myTab) myTab.classList.add('active');
-                document.getElementById('bill-my').style.display = 'block';
-                document.getElementById('bill-space').style.display = 'none';
+                document.getElementById('bill-my').style.display = 'block';     
+                document.getElementById('bill-space').style.display = 'none';   
                 hideAllSpaceForms();
                 loadMyBill();
             }
@@ -856,6 +944,12 @@
                 currentReportType = 'personal';
                 const reportStepSpace = document.getElementById('report-step-space');
                 if (reportStepSpace) reportStepSpace.style.display = 'none';
+                const aiInput = document.getElementById('ai-input');
+                if (aiInput) aiInput.value = '';
+                const aiChat = document.getElementById('ai-chat');
+                if (aiChat) {
+                    aiChat.innerHTML = '<div class="ai-message assistant"><div class="ai-bubble assistant">你好！我是 EcoWise AI 助手，可以帮你查询用电情况、分析用电习惯、回答关于宿舍用电的问题。</div></div>';
+                }
             }
         }
 
@@ -1029,6 +1123,26 @@
                 await loadViolationStatus();
                 await loadAutoOffStatus();
                 await loadApplianceIdentify();
+                // 更新模拟模式数据
+                if (simulationEnabled && currentDevice) {
+                    try {
+                        const simResp = await fetch('/api/simulation/data?device_id=' + currentDevice.device_id);
+                        const simData = await simResp.json();
+                        if (simData.simulation) {
+                            updateLEDBuzzer(simData);
+                            document.getElementById('power-value').textContent = simData.power_w || '0.0';
+                            document.getElementById('voltage-value').textContent = simData.voltage_v || '0.0';
+                            document.getElementById('current-value').textContent = simData.current_ma || '0';
+                            document.getElementById('temperature-value').textContent = simData.temperature_c || '--';
+                            document.getElementById('humidity-value').textContent = simData.humidity_percent || '--';
+                            if (document.getElementById('sim-scene-name')) {
+                                document.getElementById('sim-scene-name').textContent = simData.scene || '自定义';
+                            }
+                        }
+                    } catch (e) {}
+                } else {
+                    updateLEDBuzzer({led: 'off', buzzer: false});
+                }
                 loadingEl.style.display = 'none';
                 contentEl.style.display = 'block';
             } catch (e) {
@@ -1832,6 +1946,45 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ space_id: currentSpaceId })
+        let userLocation = null;
+
+        async function requestLocation() {
+            if (!navigator.geolocation) {
+                customAlert('你的浏览器不支持地理定位');
+                return;
+            }
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                });
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                await fetch('/api/user/location', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(userLocation)
+                });
+                customAlert('位置授权成功！现在AI可以查询你所在城市的天气了~');
+                const locBtn = document.getElementById('location-btn');
+                if (locBtn) {
+                    locBtn.textContent = '📍 已定位';
+                    locBtn.style.background = '#5a8a6e';
+                }
+            } catch (e) {
+                customAlert('获取位置失败，AI将使用默认城市查询天气。请确保浏览器已允许位置权限。');
+            }
+        }
+
+        function sendQuickQuestion(question) {
+            const input = document.getElementById('ai-input');
+            if (input) {
+                input.value = question;
+                sendAiMessage();
+            }
+        }
+
                     });
                     const data = await res.json();
                     await customAlert(data.message);
@@ -2072,6 +2225,137 @@
             } catch (e) {
                 alert('设置失败: ' + e.message);
                 document.getElementById('test-mode-switch').checked = !enabled;
+            }
+        }
+
+        // ============ 模拟模式 ============
+        let simulationEnabled = false;
+
+        async function toggleSimulation() {
+            try {
+                const resp = await fetch('/api/simulation/toggle', { method: 'POST' });
+                const data = await resp.json();
+                simulationEnabled = data.enabled;
+                updateSimulationUI();
+                if (simulationEnabled) {
+                    await loadSimScenes();
+                }
+                refreshData();
+            } catch (e) {
+                console.error('模拟模式切换失败:', e);
+            }
+        }
+
+        async function loadSimScenes() {
+            try {
+                const resp = await fetch('/api/simulation/status');
+                const data = await resp.json();
+                const scenes = data.scenes || [];
+                const container = document.getElementById('sim-scene-buttons');
+                if (container) {
+                    container.innerHTML = scenes.map(s =>
+                        '<button onclick="applySimScene(\'' + s.name + '\')" style="background:#f0f7f4;color:#2d5a40;border:1px solid #a4e4ce;padding:8px 14px;border-radius:18px;cursor:pointer;font-size:12px;transition:all 0.3s;" ' +
+                        (s.name === data.current_scene ? 'class="sim-active"' : '') +
+                        '>' + s.name + '<br><span style="font-size:10px;color:#999;">' + s.description + '</span></button>'
+                    ).join('');
+                }
+                document.getElementById('sim-scene-name').textContent = data.current_scene || '自定义';
+            } catch (e) {}
+        }
+
+        async function applySimScene(sceneName) {
+            try {
+                await fetch('/api/simulation/scene', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({scene: sceneName})
+                });
+                refreshData();
+                loadSimScenes();
+            } catch (e) {
+                console.error('场景切换失败:', e);
+            }
+        }
+
+        async function applyCustomSimulation() {
+            const data = {
+                power: parseFloat(document.getElementById('sim-power').value) || 150,
+                voltage: parseFloat(document.getElementById('sim-voltage').value) || 220,
+                current: parseFloat(document.getElementById('sim-current').value) || 680,
+                temperature: parseFloat(document.getElementById('sim-temp').value) || 25,
+                humidity: parseFloat(document.getElementById('sim-humidity').value) || 55,
+                led: document.getElementById('sim-led').value,
+                buzzer: document.getElementById('sim-buzzer').value === 'true',
+                switch_on: document.getElementById('sim-switch').value === 'true'
+            };
+            try {
+                await fetch('/api/simulation/custom', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                refreshData();
+            } catch (e) {
+                console.error('自定义模拟失败:', e);
+            }
+        }
+
+        async function checkSimulationStatus() {
+            try {
+                const resp = await fetch('/api/simulation/status');
+                const data = await resp.json();
+                simulationEnabled = data.enabled;
+                updateSimulationUI();
+                if (simulationEnabled) loadSimScenes();
+            } catch (e) {}
+        }
+
+        function updateSimulationUI() {
+            const bar = document.getElementById('simulation-bar');
+            const toggleBtn = document.getElementById('sim-toggle-btn');
+            const scenes = document.getElementById('sim-scenes');
+            
+            if (bar) bar.style.display = simulationEnabled ? 'block' : 'none';
+            if (toggleBtn) {
+                toggleBtn.textContent = simulationEnabled ? '关闭模拟模式' : '开启模拟模式';
+                toggleBtn.style.background = simulationEnabled ? '#ff6b6b' : '#7ba890';
+            }
+            if (scenes) scenes.style.display = simulationEnabled ? 'block' : 'none';
+        }
+
+        function updateLEDBuzzer(data) {
+            const ledColor = data.led || data.led_color || 'green';
+            const buzzerOn = data.buzzer === true || data.buzzer === 'true';
+            
+            const indicator = document.getElementById('led-indicator');
+            const ledText = document.getElementById('led-text');
+            const buzzerIcon = document.getElementById('buzzer-icon');
+            const buzzerText = document.getElementById('buzzer-text');
+            const row = document.getElementById('led-buzzer-row');
+            
+            if (!row) return;
+            row.style.display = 'flex';
+            
+            const colorMap = {
+                'green': { color: '#4caf50', text: '正常', shadow: 'rgba(76,175,80,0.6)' },
+                'yellow': { color: '#ffc107', text: '预警', shadow: 'rgba(255,193,7,0.6)' },
+                'red': { color: '#f44336', text: '告警', shadow: 'rgba(244,67,54,0.6)' },
+                'off': { color: '#666', text: '熄灭', shadow: 'rgba(100,100,100,0.3)' }
+            };
+            const cm = colorMap[ledColor] || colorMap['off'];
+            if (indicator) {
+                indicator.style.background = cm.color;
+                indicator.style.boxShadow = '0 0 12px ' + cm.shadow;
+            }
+            if (ledText) {
+                ledText.textContent = cm.text;
+                ledText.style.color = cm.color;
+            }
+            
+            if (buzzerIcon) buzzerIcon.textContent = buzzerOn ? '🔊' : '🔇';
+            if (buzzerText) {
+                buzzerText.textContent = buzzerOn ? '鸣响中' : '静音';
+                buzzerText.style.color = buzzerOn ? '#f44336' : '#999';
             }
         }
 
@@ -2405,6 +2689,7 @@
             setInterval(refreshData, 5000);
             pollNotifications();
             setInterval(pollNotifications, 30000);
+            checkSimulationStatus();
         }
 
         async function pollNotifications() {
@@ -2583,6 +2868,7 @@
                 const res = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+
                     body: JSON.stringify({ phone, nickname, code, password })
                 });
                 const data = await res.json();
@@ -2688,20 +2974,26 @@
                 }
 
                 // 获取 VAPID 公钥
-                const resp = await fetch('/api/push/vapid_public_key');
+                const resp = await fetch('/api/push/vapid_public_key', { credentials: 'include' });
                 const data = await resp.json();
                 const publicKey = data.public_key;
+
+                if (!publicKey) {
+                    customAlert('获取推送密钥失败，请刷新页面重试');
+                    return;
+                }
 
                 // 订阅推送
                 const subscription = await swRegistration.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(publicKey),
+                    applicationServerKey: urlBase64ToUint8Array(publicKey),     
                 });
 
                 // 发送到后端保存
                 const saveResp = await fetch('/api/push/subscribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ subscription: subscription.toJSON() }),
                 });
                 const saveData = await saveResp.json();
@@ -2711,7 +3003,7 @@
                     updatePushButton('subscribed');
                     customAlert('推送通知已开启！你可以关闭网页后仍能收到提醒。');
                 } else {
-                    customAlert('订阅失败：' + saveData.message);
+                    customAlert('订阅失败：' + (saveData.message || '未知错误，请检查是否已登录'));
                 }
             } catch (error) {
                 console.error('订阅推送失败:', error);
@@ -2727,6 +3019,7 @@
                 await fetch('/api/push/unsubscribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ endpoint: currentPushSubscription.endpoint }),
                 });
                 currentPushSubscription = null;
@@ -2763,7 +3056,7 @@
                 return;
             }
             try {
-                const resp = await fetch('/api/push/send_test', { method: 'POST' });
+                const resp = await fetch('/api/push/send_test', { method: 'POST', credentials: 'include' });
                 const data = await resp.json();
                 if (data.success) {
                     customAlert('测试推送已发送，请查看系统通知！如果浏览器处于前台，通知可能不会弹出，可以最小化浏览器后再测试。');
@@ -2775,6 +3068,14 @@
             }
         }
 
+
+        // 预加载：后台加载非关键数据
+        setTimeout(() => {
+            if (currentUsername) {
+                fetch('/api/energy_history').catch(() => {});
+                fetch('/api/carbon').catch(() => {});
+            }
+        }, 2000);
         checkLogin();
         registerServiceWorker();
     </script>

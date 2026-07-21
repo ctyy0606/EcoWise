@@ -373,11 +373,12 @@ def analyze_habits(owner=None):
         }
 
 
-def chat(user_message, owner=None, client_ip=None, history=None):
+def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, user_lng=None):
     """
     调用通义千问大模型，返回回复文本。
     自动注入当前时间、用电数据和天气作为上下文。可按用户过滤设备。
     支持多轮对话历史。
+    支持通过 user_lat/user_lng 传入用户授权的位置。
     """
     headers = {
         "Authorization": f"Bearer {config.QWEN_API_KEY}",
@@ -390,17 +391,19 @@ def chat(user_message, owner=None, client_ip=None, history=None):
     # 只在用户问天气相关问题时才获取天气数据（避免每次对话都慢）
     weather_info = ""
     if any(kw in user_message for kw in WEATHER_KEYWORDS):
-        # 优先按用户提到的城市名查询，否则按 IP 定位
+        # 优先按用户坐标查询（用户授权位置），其次按城市名，最后按IP
         city = _extract_city(user_message)
         weather = None
-        if city:
+        if user_lat is not None and user_lng is not None:
+            weather = _get_weather_by_coords(user_lat, user_lng)
+        if not weather and city:
             weather = _get_weather_by_city(city)
         if not weather:
             weather = _get_weather_by_ip(client_ip)
         if weather:
             weather_info = f"【当前天气】{weather['city']}，{weather['weather']}，气温{weather['temp']}°C，风速{weather['wind']}km/h"
         else:
-            weather_info = "【当前天气】无法获取当前天气信息，请确认城市名或网络连接"
+            weather_info = "【当前天气】无法获取当前天气信息，建议用户授权地理位置或手动输入城市名查询"
 
     full_context = "\n".join([time_info, weather_info, context])
     messages = [
