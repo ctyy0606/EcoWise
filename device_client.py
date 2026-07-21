@@ -5,6 +5,7 @@ EcoWise 宿舍助理 - 涂鸦云 API 封装
 """
 from typing import Optional, Dict
 from datetime import datetime
+import time
 
 from tuya_connector import TuyaOpenAPI
 
@@ -12,6 +13,11 @@ import config
 
 
 _openapi: Optional[TuyaOpenAPI] = None
+
+# 设备数据缓存，按设备ID存储，避免频繁调用涂鸦云 API
+# 格式: { device_id: { "data": {...}, "timestamp": float } }
+_device_cache: Dict[str, Dict] = {}
+CACHE_TTL_SECONDS: float = 3.0
 
 
 def _get_openapi() -> TuyaOpenAPI:
@@ -170,11 +176,21 @@ def get_device_data(device_id: str) -> Dict:
 
     dev_meta = config.DEVICES.get(device_id, {})
 
+    group = dev_meta.get("group", "未分组")
+    name = dev_meta.get("name", "")
+    is_sensor = (
+        device_id in config.DEVICE_PAIRINGS.values()
+        or group == "传感器设备"
+        or "开发板" in name
+        or "sensor" in name.lower()
+    )
+
     return {
         "device_id": device_id,
-        "device_name": dev_meta.get("name", f"未命名设备-{device_id[:6]}"),
+        "device_name": name or f"未命名设备-{device_id[:6]}",
         "owner": dev_meta.get("owner", "未知"),
-        "group": dev_meta.get("group", "未分组"),
+        "group": group,
+        "is_sensor": is_sensor,
         "online": is_online,
         "switch_on": switch_on,
         "power_w": round(power_w, 1) if power_w is not None else None,
@@ -252,26 +268,40 @@ def get_all_devices(include_paired_boards=True) -> list:
     """一次性拉取所有设备数据,单个失败不影响整体。
     已配对的开发板数据会合并到对应的插座中显示。
     include_paired_boards=True 时，已配对的开发板也会作为独立设备显示在列表中。
+    非测试模式下启用 3 秒缓存，避免频繁调用涂鸦云 API 导致页面卡顿。
     """
+    global _device_cache
+
+    now = time.time()
     results = []
     paired_devices = set(config.DEVICE_PAIRINGS.values())
-    
+
     for device_id in config.DEVICES.keys():
         if device_id in paired_devices and not include_paired_boards:
             continue
-        
+
         try:
-            device_data = get_device_data(device_id)
-            
+            if not config.TEST_MODE and device_id in _device_cache:
+                cache_entry = _device_cache[device_id]
+                if (now - cache_entry.get("timestamp", 0)) < CACHE_TTL_SECONDS:
+                    device_data = cache_entry.get("data", {})
+                else:
+                    device_data = get_device_data(device_id)
+                    _device_cache[device_id] = {"data": device_data, "timestamp": now}
+            else:
+                device_data = get_device_data(device_id)
+                if not config.TEST_MODE:
+                    _device_cache[device_id] = {"data": device_data, "timestamp": now}
+
             device_data["owner"] = config.DEVICES[device_id].get("owner", "未知")
-            
+
             paired_board_id = config.DEVICE_PAIRINGS.get(device_id)
             if paired_board_id and paired_board_id in config.DEVICES:
                 sensor_data = _get_sensor_data(paired_board_id)
                 device_data["light_level"] = sensor_data.get("light_level")
                 device_data["temperature_c"] = sensor_data.get("temperature_c")
                 device_data["humidity_percent"] = sensor_data.get("humidity_percent")
-            
+
             is_paired_as_board = device_id in paired_devices
             if is_paired_as_board:
                 device_data["paired_with"] = None
@@ -280,7 +310,7 @@ def get_all_devices(include_paired_boards=True) -> list:
                         device_data["paired_with"] = socket_id
                         break
             device_data["is_paired_board"] = is_paired_as_board
-            
+
             results.append(device_data)
         except Exception as e:
             results.append({
@@ -292,6 +322,7 @@ def get_all_devices(include_paired_boards=True) -> list:
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "is_paired_board": device_id in paired_devices,
             })
+
     return results
 
 

@@ -571,9 +571,10 @@ def api_ai():
     try:
         data = request.get_json()
         message = data.get('message', '')
+        history = data.get('history', [])
         owner = _current_nickname()
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        reply = ai_agent.chat(message, owner, client_ip=client_ip)
+        reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history)
         return jsonify({"reply": reply})
     except Exception as e:
         return jsonify({"reply": "抱歉，AI 服务暂时不可用: " + str(e)}), 500

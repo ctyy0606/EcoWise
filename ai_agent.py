@@ -335,10 +335,11 @@ def analyze_habits(owner=None):
         }
 
 
-def chat(user_message, owner=None, client_ip=None):
+def chat(user_message, owner=None, client_ip=None, history=None):
     """
     调用通义千问大模型，返回回复文本。
     自动注入当前时间、用电数据和天气作为上下文。可按用户过滤设备。
+    支持多轮对话历史。
     """
     headers = {
         "Authorization": f"Bearer {config.QWEN_API_KEY}",
@@ -358,8 +359,17 @@ def chat(user_message, owner=None, client_ip=None):
     full_context = "\n".join([time_info, weather_info, context])
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT + "\n" + full_context},
-        {"role": "user", "content": user_message},
     ]
+
+    # 注入历史对话（最多保留最近 10 轮）
+    if history:
+        for item in history[-10:]:
+            role = item.get("role")
+            content = item.get("content")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+
+    messages.append({"role": "user", "content": user_message})
     data = {"model": config.QWEN_MODEL, "messages": messages}
 
     resp = requests.post(API_URL, headers=headers, json=data, timeout=30)

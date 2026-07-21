@@ -367,7 +367,7 @@
     </div>
     <div id="main-app" style="display:none;">
     <div class="header">
-        <h1><a href="#" id="notif-bell" onclick="toggleNotificationPanel();return false;" style="position:relative;text-decoration:none;font-size:18px;margin-right:10px;">🔔<span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-6px;background:#ff6b6b;color:white;font-size:10px;border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center;">0</span></a>EcoWise 宿舍助理</h1>
+        <h1>EcoWise 宿舍助理</h1>
         <p>智能用电管理 · AI 助手</p>
         <div class="user-info">
             <a href="#" id="push-toggle-btn" class="logout-btn" onclick="togglePushSubscription();return false;" style="margin-right:8px;background:#7ba890;">🔔 开启推送</a>
@@ -412,7 +412,6 @@
                         <div class="data-item"><div class="data-label">电流</div><div class="data-value"><span id="current-value">0</span> <span class="data-label">mA</span></div></div>
                         <div class="data-item"><div class="data-label">温度</div><div class="data-value"><span id="temperature-value">--</span> <span class="data-label">℃</span></div></div>
                         <div class="data-item"><div class="data-label">湿度</div><div class="data-value"><span id="humidity-value">--</span> <span class="data-label">%</span></div></div>
-                        <div class="data-item"><div class="data-label">光照</div><div class="data-value"><span id="light-value">--</span> <span class="data-label">Lux</span></div></div>
                     </div>
                     <div id="violation-status"></div>
                 </div>
@@ -442,7 +441,7 @@
                 <div class="tab active" onclick="showHistory('today')">今日</div>
                 <div class="tab" onclick="showHistory('month')">本月</div>
                 <div class="tab" onclick="showHistory('carbon')">碳排放</div>
-                <div class="tab" onclick="showHistory('schedule')">作息</div>
+
             </div>
             <div id="history-today">
                 <div id="today-loading" class="loading">加载中...</div>
@@ -506,50 +505,7 @@
                     </div>
                 </div>
             </div>
-            <div id="history-schedule" style="display: none;">
-                <div id="schedule-loading" class="loading">加载中...</div>
-                <div id="schedule-content" style="display: none;">
-                    <div class="card">
-                        <div class="card-title">今日作息</div>
-                        <div class="data-grid">
-                            <div class="data-item">
-                                <div class="data-label">今日睡眠</div>
-                                <div class="data-value"><span id="schedule-today-sleep">0.00</span> 小时</div>
-                            </div>
-                            <div class="data-item">
-                                <div class="data-label">入睡次数</div>
-                                <div class="data-value"><span id="schedule-today-count">0</span> 次</div>
-                            </div>
-                        </div>
-                        <div style="margin-top:10px;font-size:12px;color:#666;padding:8px;background:#f8f9fa;border-radius:6px;">
-                            <strong style="color:#2d5a40;">💡 睡眠判断说明:</strong><br>
-                            • 通过光敏电阻传感器检测环境光照强度<br>
-                            • 光照强度持续低于20达30分钟 → 判定入睡（关灯睡觉）<br>
-                            • 光照强度回升超过20 → 判定醒来（开灯起床）<br>
-                            • 睡眠事件：记录每次入睡的开始时间、结束时间和时长
-                        </div>
-                        <div id="schedule-today-events" style="margin-top:10px;font-size:13px;"></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title">本周睡眠趋势</div>
-                        <div class="chart-container"><canvas id="schedule-chart" width="300" height="250"></canvas></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title">作息汇总</div>
-                        <div class="data-grid">
-                            <div class="data-item">
-                                <div class="data-label">平均睡眠</div>
-                                <div class="data-value"><span id="schedule-avg-sleep">0.00</span> 小时</div>
-                            </div>
-                            <div class="data-item">
-                                <div class="data-label">熬夜天数</div>
-                                <div class="data-value"><span id="schedule-late-count">0</span> 天<span class="help-icon" onclick="showLateNightHelp()" title="点击查看解释">?</span></div>
-                            </div>
-                        </div>
-                        <div id="schedule-range" style="font-size:12px;color:#7ba890;text-align:center;margin-top:8px;"></div>
-                    </div>
-                </div>
-            </div>
+
         </div>
 
         <div id="tab-bill" style="display: none;">
@@ -894,12 +850,10 @@
             document.getElementById('history-today').style.display = tabName === 'today' ? 'block' : 'none';
             document.getElementById('history-month').style.display = tabName === 'month' ? 'block' : 'none';
             document.getElementById('history-carbon').style.display = tabName === 'carbon' ? 'block' : 'none';
-            document.getElementById('history-schedule').style.display = tabName === 'schedule' ? 'block' : 'none';
 
             if (tabName === 'today') loadToday();
             else if (tabName === 'month') loadMonth();
             else if (tabName === 'carbon') loadCarbon();
-            else if (tabName === 'schedule') loadSchedule();
         }
 
         let currentDevice = null;
@@ -907,6 +861,7 @@
         let allDevices = [];
         let selectedDeviceId = null;
         let currentUsername = '';
+        let isRefreshing = false;
 
         function switchDevice() {
             const selector = document.getElementById('device-selector');
@@ -952,6 +907,8 @@
         }
 
         async function refreshData(showLoading) {
+            if (isRefreshing) return;
+            isRefreshing = true;
             const loadingEl = document.getElementById('realtime-loading');
             const contentEl = document.getElementById('realtime-content');
             const isFirstLoad = contentEl.style.display === 'none';
@@ -977,7 +934,6 @@
                     document.getElementById('current-value').textContent = '0';
                     document.getElementById('temperature-value').textContent = '--';
                     document.getElementById('humidity-value').textContent = '--';
-                    document.getElementById('light-value').textContent = '--';
                     const switchBtn = document.getElementById('switch-btn');
                     if (switchBtn) {
                         switchBtn.textContent = '开启插座';
@@ -1010,7 +966,6 @@
                 document.getElementById('current-value').textContent = isOnline ? (d.current_ma || '0') : '0';
                 document.getElementById('temperature-value').textContent = isOnline ? (d.temperature_c || '--') : '--';
                 document.getElementById('humidity-value').textContent = isOnline ? (d.humidity_percent || '--') : '--';
-                document.getElementById('light-value').textContent = isOnline ? (d.light_level || '--') : '--';
                 const switchBtn = document.getElementById('switch-btn');
                 if (switchBtn) {
                     switchBtn.textContent = d.switch_on ? '关闭插座' : '开启插座';
@@ -1027,6 +982,8 @@
                 if (isFirstLoad) {
                     console.error('加载失败:', e);
                 }
+            } finally {
+                isRefreshing = false;
             }
         }
 
@@ -1180,16 +1137,6 @@
             }
         }
 
-        function showLateNightHelp() {
-            const tooltip = document.getElementById('help-tooltip');
-            if (!tooltip) return;
-            tooltip.innerHTML = '<strong style="color:#2d5a40;">熬夜判定</strong><br>入睡时间在23:00之后或凌晨1:00之前，即判定为熬夜。良好的作息习惯有助于身心健康，建议尽量在23:00前入睡。<div style="margin-top:10px;text-align:right;"><button class="btn" style="font-size:12px;padding:4px 12px;" onclick="hideCarbonHelp()">收起</button></div>';
-            tooltip.style.left = '50%';
-            tooltip.style.top = '50%';
-            tooltip.style.transform = 'translate(-50%, -50%)';
-            tooltip.classList.add('show');
-        }
-
         const chartInstances = {};
 
         function drawChart(canvasId, data, labels, valueField, unit, enableScroll = false, maxTicks = null) {
@@ -1240,7 +1187,7 @@
                     maintainAspectRatio: false,
                     layout: {
                         padding: {
-                            top: 25,
+                            top: 45,
                             bottom: 35,
                             left: 25,
                             right: 25
@@ -1262,18 +1209,7 @@
                                 }
                             }
                         },
-                        datalabels: {
-                            display: true,
-                            color: textColor,
-                            font: { size: 10, weight: 'bold' },
-                            anchor: 'end',
-                            align: 'top',
-                            offset: 8,
-                            formatter: function(value) {
-                                if (value <= 0) return '';
-                                return value.toFixed(3);
-                            }
-                        }
+                    }
                     },
                     scales: {
                         x: {
@@ -1421,47 +1357,6 @@
                 document.getElementById('carbon-content').style.display = 'block';
             } catch (e) {
                 document.getElementById('carbon-loading').textContent = '加载失败: ' + e.message;
-            }
-        }
-
-        async function loadSchedule() {
-            document.getElementById('schedule-loading').style.display = 'block';
-            document.getElementById('schedule-content').style.display = 'none';
-            try {
-                const [todayRes, weekRes, summaryRes] = await Promise.all([
-                    fetch('/api/schedule/today'),
-                    fetch('/api/schedule/week'),
-                    fetch('/api/schedule/summary')
-                ]);
-                const today = await todayRes.json();
-                const week = await weekRes.json();
-                const summary = await summaryRes.json();
-
-                document.getElementById('schedule-today-sleep').textContent = parseFloat(today.total_sleep_hours || 0).toFixed(2);
-                document.getElementById('schedule-today-count').textContent = (today.events || []).length;
-
-                const eventsEl = document.getElementById('schedule-today-events');
-                if (today.events && today.events.length > 0) {
-                    eventsEl.innerHTML = today.events.map(ev => {
-                        const endTime = ev.end_time ? ev.end_time.split(' ')[1] : '进行中';
-                        return '<div class="record-item"><span>入睡 ' + (ev.start_time || '').split(' ')[1] + '</span><span>' + (ev.duration_minutes || 0) + ' 分钟</span><span>醒来 ' + endTime + '</span></div>';
-                    }).join('');
-                } else {
-                    eventsEl.innerHTML = '<div class="no-data">今日暂未检测到睡眠事件</div>';
-                }
-
-                document.getElementById('schedule-avg-sleep').textContent = parseFloat(summary.avg_sleep_hours || 0).toFixed(2);
-                document.getElementById('schedule-late-count').textContent = summary.late_night_count || 0;
-                document.getElementById('schedule-range').textContent = summary.week_range || '';
-
-                const daily = week.daily || [];
-                const labels = daily.map(d => d.dateShort + '日');
-                drawChart('schedule-chart', daily, labels, 'sleep_hours', '小时', false, 5);
-
-                document.getElementById('schedule-loading').style.display = 'none';
-                document.getElementById('schedule-content').style.display = 'block';
-            } catch (e) {
-                document.getElementById('schedule-loading').textContent = '加载失败: ' + e.message;
             }
         }
 
@@ -1822,6 +1717,8 @@
             }
         }
 
+        let aiChatHistory = [];
+
         async function sendAiMessage() {
             const input = document.getElementById('ai-input');
             const message = input.value.trim();
@@ -1834,15 +1731,25 @@
             chat.innerHTML += '<div class="ai-message assistant"><div class="ai-bubble assistant">思考中...</div></div>';
             chat.scrollTop = chat.scrollHeight;
 
+            // 保存用户消息到历史
+            aiChatHistory.push({ role: 'user', content: message });
+            // 只保留最近 10 轮对话
+            if (aiChatHistory.length > 20) {
+                aiChatHistory = aiChatHistory.slice(-20);
+            }
+
             try {
                 const res = await fetch('/api/ai', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
+                    body: JSON.stringify({ message: message, history: aiChatHistory })
                 });
                 const data = await res.json();
+                const reply = data.reply || '抱歉，无法回答。';
                 const bubbles = chat.querySelectorAll('.ai-message.assistant .ai-bubble');
-                bubbles[bubbles.length - 1].textContent = data.reply || '抱歉，无法回答。';
+                bubbles[bubbles.length - 1].textContent = reply;
+                // 保存助手回复到历史
+                aiChatHistory.push({ role: 'assistant', content: reply });
             } catch (e) {
                 const bubbles = chat.querySelectorAll('.ai-message.assistant .ai-bubble');
                 bubbles[bubbles.length - 1].textContent = '网络错误';
@@ -2075,14 +1982,21 @@
                     return;
                 }
 
-                list.innerHTML = devices.map(d =>
-                    '<div class="device-card">' +
-                    '<div class="device-info"><h4>' + d.device_name + '</h4></div>' +
-                    '<span class="device-status ' + (d.online ? 'online' : 'offline') + '">' + (d.online ? '在线' : '离线') + '</span>' +
-                    '<span style="font-size:11px;color:#7ba890;margin-left:8px;">分组: ' + (d.group || '未分组') + '</span>' +
-                    '<span class="device-id-text">设备ID: ' + d.device_id + '</span>' +
-                    '</div>'
-                ).join('');
+                list.innerHTML = devices.map(d => {
+                    const sensorHtml = (d.temperature_c != null || d.humidity_percent != null)
+                        ? '<div style="font-size:11px;color:#7ba890;margin-top:4px;">' +
+                          (d.temperature_c != null ? '🌡️ ' + d.temperature_c + '℃ ' : '') +
+                          (d.humidity_percent != null ? '💧 ' + d.humidity_percent + '%' : '') +
+                          '</div>'
+                        : '';
+                    return '<div class="device-card">' +
+                        '<div class="device-info"><h4>' + d.device_name + '</h4></div>' +
+                        '<span class="device-status ' + (d.online ? 'online' : 'offline') + '">' + (d.online ? '在线' : '离线') + '</span>' +
+                        '<span style="font-size:11px;color:#7ba890;margin-left:8px;">分组: ' + (d.group || '未分组') + '</span>' +
+                        sensorHtml +
+                        '<span class="device-id-text">设备ID: ' + d.device_id + '</span>' +
+                        '</div>';
+                }).join('');
             } catch (e) {
             document.getElementById('device-list').innerHTML = '<div class="loading">加载失败</div>';
         }
@@ -2167,8 +2081,8 @@
                     const option = document.createElement('option');
                     option.value = d.device_id;
                     option.textContent = d.device_name + ' (' + d.owner + ')';
-                    
-                    if (d.group === '传感器设备' || d.device_name.includes('开发板')) {
+
+                    if (d.is_sensor) {
                         boardSelect.appendChild(option.cloneNode(true));
                     } else {
                         socketSelect.appendChild(option);
@@ -2361,7 +2275,7 @@
             document.getElementById('login-page').style.display = 'none';
             document.getElementById('main-app').style.display = 'block';
             refreshData();
-            setInterval(refreshData, 10000);
+            setInterval(refreshData, 5000);
             pollNotifications();
             setInterval(pollNotifications, 30000);
         }
@@ -2429,16 +2343,32 @@
             document.getElementById('main-app').style.display = 'none';
         }
 
+        let verifyCodeTimer = null;
+
+        function resetVerifyCodeButton() {
+            const btn = document.getElementById('send-code-btn');
+            if (btn) {
+                btn.textContent = '获取验证码';
+                btn.disabled = false;
+            }
+            if (verifyCodeTimer) {
+                clearInterval(verifyCodeTimer);
+                verifyCodeTimer = null;
+            }
+        }
+
         function showRegisterForm() {
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('register-form').style.display = 'block';
             document.getElementById('login-error').textContent = '';
+            resetVerifyCodeButton();
         }
 
         function showLoginForm() {
             document.getElementById('register-form').style.display = 'none';
             document.getElementById('login-form').style.display = 'block';
             document.getElementById('login-error').textContent = '';
+            resetVerifyCodeButton();
         }
 
         async function sendVerifyCode() {
@@ -2461,12 +2391,11 @@
                     await customAlert('您的验证码是：' + data.code + '（开发模式直接显示，上线后改为短信发送）');
                     let count = 60;
                     btn.textContent = count + '秒后重发';
-                    const timer = setInterval(() => {
+                    resetVerifyCodeButton();
+                    verifyCodeTimer = setInterval(() => {
                         count--;
                         if (count <= 0) {
-                            clearInterval(timer);
-                            btn.textContent = '获取验证码';
-                            btn.disabled = false;
+                            resetVerifyCodeButton();
                         } else {
                             btn.textContent = count + '秒后重发';
                         }
