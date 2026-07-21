@@ -38,7 +38,7 @@ def _now():
 def create_notification(user_phone, notif_type, title, message, device_id=None):
     """
     创建通知。
-    notif_type: violation_auto_off / late_night_warning / weekly_report / schedule_warning
+    notif_type: violation_auto_off / late_night_warning / weekly_report
     返回 notification_id
     """
     conn = _get_db()
@@ -202,25 +202,3 @@ def notify_weekly_report(user_phone, report_type):
     return True
 
 
-def check_and_notify_schedule(user_phone, consecutive_late_nights=3):
-    """
-    作息异常预警：连续熬夜天数达到阈值时发送通知。
-    每天只发送一次。
-    """
-    if check_recent_notification(user_phone, "schedule_warning", hours=24):
-        return False
-
-    try:
-        from schedule_analyzer import get_schedule_stats
-        stats = get_schedule_stats(user_phone)
-        late_count = stats.get('late_night_days', 0)
-        
-        if late_count >= consecutive_late_nights:
-            title = "作息预警"
-            message = f"检测到你连续{late_count}天熬夜，长期熬夜会影响健康，请调整作息时间，保证充足睡眠！"
-            create_notification(user_phone, "schedule_warning", title, message)
-            return True
-    except Exception:
-        pass
-    
-    return False

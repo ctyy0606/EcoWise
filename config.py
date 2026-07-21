@@ -88,13 +88,6 @@ SMART_POLICY = {
     "late_night_warning_watts": 200,  # 深夜告警阈值
 }
 
-# 作息分析参数
-SCHEDULE = {
-    "sleep_power_threshold": 30,   # 功率<30W视为低功耗（可能入睡）
-    "sleep_duration_minutes": 30,  # 持续30分钟判定入睡
-}
-
-
 # ============ 6. 测试模式配置 ============
 # 开启后模拟高功率数据，方便测试自动断电功能（无需真实大功率电器）
 TEST_MODE = False

@@ -23,7 +23,6 @@ import carbon
 import auto_power_off
 import smart_power_policy
 import weekly_report
-import schedule_analyzer
 import appliance_fingerprint
 
 print("[DEBUG] 服务器启动时加载的配置:")
@@ -190,6 +189,14 @@ def api_devices():
         print(f"[DEBUG] api_devices: current nickname={nickname}")
         filtered = [d for d in devices if d.get('owner') == nickname]
         print(f"[DEBUG] api_devices: filtered count={len(filtered)}")
+
+        # 如果当前用户没有匹配设备，但配置中存在其他 owner 的设备，给出提示
+        if not filtered and devices:
+            other_owners = sorted(set(d.get('owner') for d in devices if d.get('owner')))
+            return jsonify({
+                "devices": filtered,
+                "hint": f"当前登录用户 '{nickname}' 没有设备。现有设备属于: {', '.join(other_owners)}。请使用对应用户名登录，或在设备管理中添加设备。"
+            })
         return jsonify(filtered)
     except Exception as e:
         print(f"[DEBUG] api_devices error: {e}")
@@ -313,12 +320,12 @@ def api_debug_device_raw(device_id):
             f"/v1.0/devices/{device_id}/status",
             f"/v2.0/devices/{device_id}/status",
             f"/v1.0/iot-03/devices/{device_id}/status",
-            f"/v1.0/iot-03/devices/{device_id}/status?codes=temp,light,humidity",
+            f"/v1.0/iot-03/devices/{device_id}/status?codes=temp,humidity",
             f"/v1.0/devices/{device_id}/specification",
             f"/v1.0/devices/{device_id}/shadow",
             f"/v1.0/iot-03/devices/{device_id}/logs?start_time=0&end_time=9999999999999&size=20",
             f"/v1.0/iot-03/devices/{device_id}/properties",
-            f"/v1.0/iot-03/devices/{device_id}/properties?codes=temp,light,humidity",
+            f"/v1.0/iot-03/devices/{device_id}/properties?codes=temp,humidity",
             f"/v1.0/statistics-device/device/{device_id}/day",
         ]
         
@@ -625,7 +632,7 @@ def api_export_csv():
         
         output = StringIO()
         writer = csv.writer(output)
-        writer.writerow(['日期', '时间', '设备ID', '功率(W)', '电量(Wh)', '电压(V)', '电流(mA)', '光照强度'])
+        writer.writerow(['日期', '时间', '设备ID', '功率(W)', '电量(Wh)', '电压(V)', '电流(mA)'])
         
         for r in records:
             writer.writerow([
@@ -636,7 +643,6 @@ def api_export_csv():
                 r.get('energy_wh', ''),
                 r.get('voltage_v', ''),
                 r.get('current_ma', ''),
-                r.get('light_level', ''),
             ])
         
         output.seek(0)
@@ -1225,84 +1231,6 @@ def api_weekly_report_space_latest():
         return jsonify({"error": str(e)}), 500
 
 
-# ============ 作息分析 API ============
-
-@app.route('/api/schedule/today')
-@login_required
-def api_schedule_today():
-    """获取今日作息"""
-    try:
-        phone = session.get('phone')
-        result = schedule_analyzer.get_today_schedule(phone)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/schedule/week')
-@login_required
-def api_schedule_week():
-    """获取本周作息汇总"""
-    try:
-        phone = session.get('phone')
-        result = schedule_analyzer.get_week_schedule(phone)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/schedule/summary')
-@login_required
-def api_schedule_summary():
-    """获取作息汇总"""
-    try:
-        phone = session.get('phone')
-        result = schedule_analyzer.get_schedule_summary(phone)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/schedule/dorm_status')
-def api_dorm_status():
-    """获取当前宿舍状态"""
-    try:
-        phone = session.get('phone')
-        result = schedule_analyzer.get_current_dorm_status(phone)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/schedule/stay_up_check')
-def api_stay_up_check():
-    """检查是否熬夜"""
-    try:
-        phone = session.get('phone')
-        result = schedule_analyzer.check_stay_up_late(phone)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/schedule/record_status', methods=['POST'])
-def api_record_status():
-    """记录宿舍状态"""
-    try:
-        phone = session.get('phone')
-        data = request.get_json()
-        result = schedule_analyzer.record_dorm_status(
-            phone,
-            data.get('power_w'),
-            data.get('light_level'),
-            data.get('temperature_c'),
-            data.get('humidity_percent')
-        )
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 # ============ 测试模式 API ============
 
 @app.route('/api/test_mode', methods=['POST'])
@@ -1316,7 +1244,6 @@ def api_test_mode():
         power_w = data.get('power_w', 1200)
         temperature_c = data.get('temperature_c', 25)
         humidity_percent = data.get('humidity_percent', 60)
-        light_level = data.get('light_level', 100)
         
         if not enabled:
             import auto_power_off
@@ -1331,7 +1258,6 @@ def api_test_mode():
         config.TEST_POWER_W = power_w
         config.TEST_TEMPERATURE_C = temperature_c
         config.TEST_HUMIDITY_PERCENT = humidity_percent
-        config.TEST_LIGHT_LEVEL = light_level
         
         return jsonify({
             "success": True,
@@ -1339,7 +1265,6 @@ def api_test_mode():
             "power_w": config.TEST_POWER_W,
             "temperature_c": config.TEST_TEMPERATURE_C,
             "humidity_percent": config.TEST_HUMIDITY_PERCENT,
-            "light_level": config.TEST_LIGHT_LEVEL,
             "message": f"测试模式已{'开启' if enabled else '关闭'}"
         })
     except Exception as e:
@@ -1356,7 +1281,6 @@ def api_test_mode_status():
         "power_w": config.TEST_POWER_W,
         "temperature_c": getattr(config, 'TEST_TEMPERATURE_C', 25),
         "humidity_percent": getattr(config, 'TEST_HUMIDITY_PERCENT', 60),
-        "light_level": getattr(config, 'TEST_LIGHT_LEVEL', 100),
         "violation_threshold": config.VIOLATION_THRESHOLDS.get("violation_watts", 800),
         "warning_threshold": config.VIOLATION_THRESHOLDS.get("warning_watts", 450),
     })
@@ -1431,10 +1355,35 @@ def api_push_unsubscribe():
 @app.route('/api/push/send_test', methods=['POST'])
 @login_required
 def api_push_send_test():
-    """发送测试推送（仅用于开发测试）"""
+    """发送测试推送（仅用于开发测试，发送到当前登录用户）"""
     try:
         import push_notification
         user_phone = session.get('phone', '')
+        ok, result = push_notification.send_push_to_user(
+            user_phone,
+            title="EcoWise 测试通知",
+            body="如果你看到这条消息，说明浏览器推送功能正常！",
+            tag="test",
+            require_interaction=True,
+        )
+        return jsonify({"success": ok, "result": result})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/test-push', methods=['POST'])
+@login_required
+def api_test_push():
+    """测试推送接口：接收 user_phone，向该用户的订阅发送一条测试推送"""
+    try:
+        import push_notification
+        data = request.get_json() or {}
+        user_phone = data.get('user_phone', '').strip()
+        if not user_phone:
+            user_phone = session.get('phone', '')
+        if not user_phone:
+            return jsonify({"success": False, "message": "缺少 user_phone"}), 400
+
         ok, result = push_notification.send_push_to_user(
             user_phone,
             title="EcoWise 测试通知",

@@ -402,7 +402,7 @@
                     </select>
                 </div>
                 <div class="card">
-                    <div class="card-title">实时功率</div>
+                    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">实时功率 <span id="device-online-status" class="device-status offline">离线</span></div>
                     <div class="power-display">
                         <div class="power-value"><span id="power-value">0.0</span> <span class="power-unit">W</span></div>
                     </div>
@@ -638,6 +638,7 @@
                 <button class="btn" style="margin-top:8px;" onclick="showModifyDevicePage()">修改设备</button>
                 <button class="btn btn-danger" style="margin-top:8px;" onclick="showDeleteDevicePage()">删除设备</button>
                 <button class="btn" style="margin-top:8px;" onclick="showPairDeviceForm()">设备配对</button>
+                <button class="btn" id="push-toggle-btn" style="margin-top:8px;background:#7ba890;" onclick="togglePushSubscription()">🔔 开启推送</button>
                 <button class="btn" style="margin-top:8px;background:#6ba889;" onclick="sendTestPush()">📲 测试推送通知</button>
             </div>
             <div class="card" id="test-mode-card">
@@ -669,17 +670,9 @@
                                    oninput="updateTestHumidity()" style="width:150px;margin-left:8px;">
                             <span id="test-hum-value">60%</span>
                         </div>
-                        <div style="margin-bottom:10px;">
-                            <span style="font-size:13px;color:#666;">模拟光照（Lux）：</span>
-                            <input type="range" id="test-light-slider" min="0" max="100000" step="100" value="100" 
-                                   oninput="updateTestLight()" style="width:150px;margin-left:8px;">
-                            <span id="test-light-value">100 Lux</span>
-                        </div>
                         <div style="font-size:12px;color:#888;">
                             <div>⚠️ 预警阈值：450W（黄色）</div>
                             <div>❌ 违规阈值：800W（红色，触发自动断电）</div>
-                            <div>🌙 熬夜检测：23:00后功率>200W</div>
-                            <div>💤 入睡检测：功率<30W + 光照<50 Lux</div>
                         </div>
                     </div>
                 </div>
@@ -890,7 +883,9 @@
         const dataCache = {
             devices: { data: null, timestamp: 0 },
             today: { data: null, timestamp: 0 },
+            todayViolations: { data: null, timestamp: 0 },
             month: { data: null, timestamp: 0 },
+            monthViolations: { data: null, timestamp: 0 },
             carbon: { data: null, timestamp: 0 }
         };
         const DATA_CACHE_TTL_MS = 10000; // 10 秒内重复切换不重新请求
@@ -912,7 +907,9 @@
             const selector = document.getElementById('device-selector');
             selectedDeviceId = selector.value;
             invalidateCache('today');
+            invalidateCache('todayViolations');
             invalidateCache('month');
+            invalidateCache('monthViolations');
             invalidateCache('carbon');
             refreshData(true);
             if (document.getElementById('tab-history').style.display !== 'none') {
@@ -969,7 +966,9 @@
             }
             try {
                 const res = await fetch('/api/devices');
-                const devices = await res.json();
+                const result = await res.json();
+                const hint = result.hint || '';
+                const devices = Array.isArray(result) ? result : (result.devices || []);
                 allDevices = devices;
                 const selectorArea = document.getElementById('device-selector-area');
 
@@ -977,7 +976,8 @@
                     loadingEl.style.display = 'none';
                     contentEl.style.display = 'block';
                     if (selectorArea) {
-                        selectorArea.innerHTML = '<div style="text-align:center;color:#7ba890;padding:12px;border:2px dashed #a4e4ce;border-radius:8px;font-size:14px;">请先添加设备</div>';
+                        let msg = hint || '请先添加设备';
+                        selectorArea.innerHTML = '<div style="text-align:center;color:#7ba890;padding:12px;border:2px dashed #a4e4ce;border-radius:8px;font-size:14px;">' + msg + '</div>';
                     }
                     document.getElementById('power-value').textContent = '0.0';
                     document.getElementById('voltage-value').textContent = '0.0';
@@ -1010,6 +1010,11 @@
                 const d = devices.find(d => d.device_id === selectedDeviceId) || devices[0];
                 currentDevice = d;
                 const isOnline = d.online;
+                const onlineStatusEl = document.getElementById('device-online-status');
+                if (onlineStatusEl) {
+                    onlineStatusEl.textContent = isOnline ? '在线' : '离线';
+                    onlineStatusEl.className = 'device-status ' + (isOnline ? 'online' : 'offline');
+                }
                 const power = isOnline ? (d.power_w || 0) : 0;
                 document.getElementById('power-value').textContent = power < 1 ? '0.0' : power;
                 document.getElementById('voltage-value').textContent = isOnline ? (d.voltage_v || '0.0') : '0.0';
@@ -1095,7 +1100,10 @@
                 const isOnline = currentDevice && currentDevice.online;
                 const hasPowerData = currentDevice && currentDevice.power_w !== null && currentDevice.power_w > 0;
                 
-                if (!isOnline || !hasPowerData) {
+                if (!isOnline) {
+                    text = '设备当前离线，请检查插座网络状态';
+                    level = 'normal';
+                } else if (!hasPowerData) {
                     text = '请先插上用电设备';
                     level = 'normal';
                 } else if (d && d.violation) {
@@ -1345,21 +1353,43 @@
         }
 
         async function loadToday() {
-            if (isCacheValid('today')) {
+            const cachedToday = isCacheValid('today');
+            const cachedViolations = isCacheValid('todayViolations');
+            if (cachedToday) {
                 renderTodayData(dataCache.today.data);
-                loadTodayViolations();
-                return;
             }
-            document.getElementById('today-loading').style.display = 'block';
-            document.getElementById('today-content').style.display = 'none';
+            if (cachedViolations) {
+                renderTodayViolations(dataCache.todayViolations.data);
+            }
+            if (cachedToday && cachedViolations) return;
+
+            if (!cachedToday) {
+                document.getElementById('today-loading').style.display = 'block';
+                document.getElementById('today-content').style.display = 'none';
+            }
             try {
-                const res = await fetch('/api/today?device_id=' + encodeURIComponent(selectedDeviceId || ''));
-                const data = await res.json();
-                setCache('today', data);
-                renderTodayData(data);
-                loadTodayViolations();
+                if (!cachedToday) {
+                    const res = await fetch('/api/today?device_id=' + encodeURIComponent(selectedDeviceId || ''));
+                    const data = await res.json();
+                    setCache('today', data);
+                    renderTodayData(data);
+                }
+                if (!cachedViolations) {
+                    loadTodayViolations();
+                }
             } catch (e) {
                 document.getElementById('today-loading').textContent = '加载失败: ' + e.message;
+            }
+        }
+
+        function renderTodayViolations(data) {
+            const el = document.getElementById('today-violations');
+            if (data.count === 0) {
+                el.innerHTML = '<div class="no-data">今日暂无违规记录</div>';
+            } else {
+                el.innerHTML = data.violations.map(v =>
+                    '<div class="record-item"><span>' + v.time + ' ' + v.device_name + '</span><span>' + v.appliance + ' 峰值' + v.peak_power + 'W ' + v.duration_minutes + '分钟</span></div>'
+                ).join('');
             }
         }
 
@@ -1367,14 +1397,8 @@
             try {
                 const res = await fetch('/api/violations/today?device_id=' + encodeURIComponent(selectedDeviceId || ''));
                 const data = await res.json();
-                const el = document.getElementById('today-violations');
-                if (data.count === 0) {
-                    el.innerHTML = '<div class="no-data">今日暂无违规记录</div>';
-                } else {
-                    el.innerHTML = data.violations.map(v =>
-                        '<div class="record-item"><span>' + v.time + ' ' + v.device_name + '</span><span>' + v.appliance + ' 峰值' + v.peak_power + 'W ' + v.duration_minutes + '分钟</span></div>'
-                    ).join('');
-                }
+                setCache('todayViolations', data);
+                renderTodayViolations(data);
             } catch (e) {
                 document.getElementById('today-violations').innerHTML = '<div class="loading">加载失败</div>';
             }
@@ -1390,21 +1414,44 @@
         }
 
         async function loadMonth() {
-            if (isCacheValid('month')) {
+            const cachedMonth = isCacheValid('month');
+            const cachedViolations = isCacheValid('monthViolations');
+            if (cachedMonth) {
                 renderMonthData(dataCache.month.data);
-                loadMonthViolations();
-                return;
             }
-            document.getElementById('month-loading').style.display = 'block';
-            document.getElementById('month-content').style.display = 'none';
+            if (cachedViolations) {
+                renderMonthViolations(dataCache.monthViolations.data);
+            }
+            if (cachedMonth && cachedViolations) return;
+
+            if (!cachedMonth) {
+                document.getElementById('month-loading').style.display = 'block';
+                document.getElementById('month-content').style.display = 'none';
+            }
             try {
-                const res = await fetch('/api/month?device_id=' + encodeURIComponent(selectedDeviceId || ''));
-                const data = await res.json();
-                setCache('month', data);
-                renderMonthData(data);
-                loadMonthViolations();
+                if (!cachedMonth) {
+                    const res = await fetch('/api/month?device_id=' + encodeURIComponent(selectedDeviceId || ''));
+                    const data = await res.json();
+                    setCache('month', data);
+                    renderMonthData(data);
+                }
+                if (!cachedViolations) {
+                    loadMonthViolations();
+                }
             } catch (e) {
                 document.getElementById('month-loading').textContent = '加载失败: ' + e.message;
+            }
+        }
+
+        function renderMonthViolations(data) {
+            document.getElementById('month-violation-count').textContent = data.total_count || 0;
+            const el = document.getElementById('month-violations');
+            if (data.total_count === 0) {
+                el.innerHTML = '<div class="no-data">本月暂无违规记录</div>';
+            } else {
+                el.innerHTML = data.daily.map(d =>
+                    '<div class="record-item"><span>' + d.dateShort + '日（' + d.count + '次）</span><span>' + d.devices.map(dev => dev.time + ' ' + dev.appliance).join('，') + '</span></div>'
+                ).join('');
             }
         }
 
@@ -1452,15 +1499,8 @@
             try {
                 const res = await fetch('/api/violations/month?device_id=' + encodeURIComponent(selectedDeviceId || ''));
                 const data = await res.json();
-                document.getElementById('month-violation-count').textContent = data.total_count || 0;
-                const el = document.getElementById('month-violations');
-                if (data.total_count === 0) {
-                    el.innerHTML = '<div class="no-data">本月暂无违规记录</div>';
-                } else {
-                    el.innerHTML = data.daily.map(d =>
-                        '<div class="record-item"><span>' + d.dateShort + '日（' + d.count + '次）</span><span>' + d.devices.map(dev => dev.time + ' ' + dev.appliance).join('，') + '</span></div>'
-                    ).join('');
-                }
+                setCache('monthViolations', data);
+                renderMonthViolations(data);
             } catch (e) {
                 document.getElementById('month-violations').innerHTML = '<div class="loading">加载失败</div>';
             }
@@ -1914,7 +1954,8 @@
             
             try {
                 const res = await fetch('/api/devices');
-                const devices = await res.json();
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
                 if (!devices || devices.length === 0) {
                     btn.disabled = false;
                     btn.textContent = '生成本周用电周报';
@@ -2012,12 +2053,11 @@
             const power_w = parseInt(document.getElementById('test-power-slider').value);
             const temperature_c = parseInt(document.getElementById('test-temp-slider').value);
             const humidity_percent = parseInt(document.getElementById('test-hum-slider').value);
-            const light_level = parseInt(document.getElementById('test-light-slider').value);
             try {
                 const res = await fetch('/api/test_mode', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled, power_w, temperature_c, humidity_percent, light_level })
+                    headers: { 'Content-Type': 'application/json' },       
+                    body: JSON.stringify({ enabled, power_w, temperature_c, humidity_percent })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -2046,13 +2086,8 @@
         }
 
         function updateTestHumidity() {
-            const hum = document.getElementById('test-hum-slider').value;
+            const hum = document.getElementById('test-hum-slider').value;  
             document.getElementById('test-hum-value').textContent = hum + '%';
-        }
-
-        function updateTestLight() {
-            const light = document.getElementById('test-light-slider').value;
-            document.getElementById('test-light-value').textContent = light + ' Lux';
         }
 
         async function loadDevices() {
@@ -2062,7 +2097,8 @@
                     titleEl.textContent = currentUsername + '的设备';
                 }
                 const res = await fetch('/api/devices');
-                const devices = await res.json();
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
                 const list = document.getElementById('device-list');
 
                 if (devices.length === 0) {
@@ -2157,7 +2193,8 @@
         async function populatePairSelects() {
             try {
                 const res = await fetch('/api/devices');
-                const devices = await res.json();
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
                 
                 const socketSelect = document.getElementById('pair-socket-select');
                 const boardSelect = document.getElementById('pair-board-select');
@@ -2224,7 +2261,8 @@
 
             try {
                 const res = await fetch('/api/devices');
-                const devices = await res.json();
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
 
                 if (devices.length === 0) {
                     list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无设备</div>';
@@ -2281,7 +2319,8 @@
 
             try {
                 const res = await fetch('/api/devices');
-                const devices = await res.json();
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
 
                 if (devices.length === 0) {
                     list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无设备</div>';
@@ -2715,11 +2754,19 @@
         }
 
         async function sendTestPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                customAlert('当前浏览器不支持 Web Push 推送通知。\n建议：使用 Chrome/Edge 浏览器，或电脑端访问测试。\n国产手机浏览器（如 OPPO/vivo/华为自带浏览器）通常不支持此功能。');
+                return;
+            }
+            if (!currentPushSubscription) {
+                customAlert('你还没有开启推送通知，请先点击"🔔 开启推送"按钮并允许通知权限。');
+                return;
+            }
             try {
                 const resp = await fetch('/api/push/send_test', { method: 'POST' });
                 const data = await resp.json();
                 if (data.success) {
-                    customAlert('测试推送已发送，请查看系统通知！');
+                    customAlert('测试推送已发送，请查看系统通知！如果浏览器处于前台，通知可能不会弹出，可以最小化浏览器后再测试。');
                 } else {
                     customAlert('发送失败：' + (data.message || JSON.stringify(data.result)));
                 }

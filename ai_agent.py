@@ -199,12 +199,6 @@ SYSTEM_PROMPT = """你是 EcoWise 宿舍管家，名字叫小E。
    - 雨天衣服未干可去一楼烘干机烘干
    - 可在 u净 App 查看楼栋烘干机/洗衣机是否空闲
 
-【作息管理规则】
-1. 宿舍统一熄灯：周一到周四 23:00，周五到周日由学生自己控制
-2. 安静时间因寝室而异，如果用户提过要记住
-3. 寝室楼早上开门时间：06:00
-4. 午休时间没有统一规定，尊重个人习惯
-
 【回答风格】
 - 温柔、佛系、可爱，像一个会照顾人的室友
 - 适当使用 emoji，但不要过度
@@ -255,8 +249,7 @@ def _build_context(owner=None):
             online = "在线" if d.get("online") else "离线"
             temp = d.get("temperature_c", "--")
             humidity = d.get("humidity_percent", "--")
-            light = d.get("light_level", "--")
-            lines.append(f"- {name}（{dev_owner}）：{online}，功率{power}W，电压{voltage}V，电流{current}mA，开关{switch}，温度{temp}°C，湿度{humidity}%，光照{light}Lux")
+            lines.append(f"- {name}（{dev_owner}）：{online}，功率{power}W，电压{voltage}V，电流{current}mA，开关{switch}，温度{temp}°C，湿度{humidity}%")
 
         lines.append(f"今日总用电：{today.get('total_kwh', 0)}度")
         lines.append(f"本月总用电：{month.get('total_kwh', 0)}度")
@@ -277,20 +270,16 @@ def _get_environment_status(devices):
     """获取环境状态摘要"""
     temps = []
     hums = []
-    lights = []
     
     for d in devices:
         temp = d.get("temperature_c")
         hum = d.get("humidity_percent")
-        light = d.get("light_level")
         if temp is not None:
             temps.append(temp)
         if hum is not None:
             hums.append(hum)
-        if light is not None:
-            lights.append(light)
     
-    if not temps and not hums and not lights:
+    if not temps and not hums:
         return None
     
     parts = []
@@ -300,10 +289,6 @@ def _get_environment_status(devices):
     if hums:
         avg_hum = sum(hums) / len(hums)
         parts.append(f"平均湿度{avg_hum:.0f}%")
-    if lights:
-        avg_light = sum(lights) / len(lights)
-        light_desc = "明亮" if avg_light > 50 else "较暗" if avg_light > 20 else "黑暗"
-        parts.append(f"环境{light_desc}（{avg_light:.0f}Lux）")
     
     return "，".join(parts)
 

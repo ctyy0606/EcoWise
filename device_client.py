@@ -43,19 +43,11 @@ def get_device_data(device_id: str) -> Dict:
         online, switch_on,
         power_w, voltage_v, current_ma,
         energy_kwh, energy_wh,
-        light_level,  # 光敏传感器数值(0-100, 0=黑暗, 100=明亮)
         timestamp
     """
     if config.TEST_MODE:
         dev_meta = config.DEVICES.get(device_id, {})
         print(f"[测试模式] 返回模拟数据: 功率={config.TEST_POWER_W}W")
-        hour = datetime.now().hour
-        if 22 <= hour or hour < 6:
-            light_level = 5
-        elif 6 <= hour < 8 or 18 <= hour < 22:
-            light_level = 50
-        else:
-            light_level = 90
         
         violation_threshold = config.VIOLATION_THRESHOLDS.get("violation_watts", 800)
         is_over_threshold = config.TEST_POWER_W >= violation_threshold
@@ -90,7 +82,6 @@ def get_device_data(device_id: str) -> Dict:
             "current_ma": int(config.TEST_POWER_W / 220 * 1000),
             "energy_kwh": round(energy_wh / 1000.0, 3),
             "energy_wh": energy_wh,
-            "light_level": getattr(config, 'TEST_LIGHT_LEVEL', 100),
             "temperature_c": getattr(config, 'TEST_TEMPERATURE_C', 25),
             "humidity_percent": getattr(config, 'TEST_HUMIDITY_PERCENT', 60),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -100,18 +91,31 @@ def get_device_data(device_id: str) -> Dict:
     api = _get_openapi()
 
     # 1) 先查设备信息(判断在线状态)
-    info_resp = api.get(f"/v1.0/devices/{device_id}")
-    info = info_resp.get("result", {}) or {}
-    is_online = info.get("online", False)
-    print(f"[device_client] 设备 {device_id} 在线状态: {is_online}, 设备信息: {info}")
+    info = {}
+    is_online = False
+    info_success = False
+    try:
+        info_resp = api.get(f"/v1.0/devices/{device_id}")
+        info_success = info_resp.get("success", False)
+        info = info_resp.get("result", {}) or {}
+        is_online = info.get("online", False)
+    except Exception as e:
+        print(f"[device_client] 设备 {device_id} 信息查询失败: {e}")
 
     # 2) 拉取设备 DP 状态
-    status_resp = api.get(f"/v1.0/devices/{device_id}/status")
-    result = status_resp.get("result", []) or []
-    print(f"[device_client] 设备 {device_id} DP状态: {result}")
+    result = []
+    status_success = False
+    try:
+        status_resp = api.get(f"/v1.0/devices/{device_id}/status")
+        status_success = status_resp.get("success", False)
+        result = status_resp.get("result", []) or []
+    except Exception as e:
+        print(f"[device_client] 设备 {device_id} 状态查询失败: {e}")
 
-    # 兼容处理：涂鸦云 online 字段可能延迟，如果能拉到 DP 状态则认为设备在线
-    if not is_online and result:
+    print(f"[device_client] 设备 {device_id} 信息接口: {info_success}, 在线字段: {is_online}, 状态接口: {status_success}, DP数: {len(result)}")
+
+    # 兼容处理：涂鸦云 online 字段可能延迟，如果能拉到 DP 状态或状态接口成功，则认为设备在线
+    if not is_online and (result or status_success):
         is_online = True
         print(f"[device_client] 设备 {device_id} DP状态可用，修正在线状态为在线")
 
@@ -120,7 +124,6 @@ def get_device_data(device_id: str) -> Dict:
     voltage_raw = None
     current_raw = None
     switch_on = None
-    light_level = None
     temperature_c = None
     humidity_percent = None
 
@@ -131,11 +134,9 @@ def get_device_data(device_id: str) -> Dict:
         "104": "cur_voltage",
         "105": "switch_1",
         "106": "temp",
-        "107": "lux",
         "108": "humidity",
         "201": "temp",
         "202": "cur_power",
-        "203": "lux",
         "204": "humidity",
         "add_ele": "add_ele",
         "cur_current": "cur_current",
@@ -144,8 +145,6 @@ def get_device_data(device_id: str) -> Dict:
         "switch_1": "switch_1",
         "temp": "temp",
         "temperature": "temp",
-        "lux": "lux",
-        "light": "lux",
         "humidity": "humidity",
         "hum": "humidity",
         "switch": "switch_1",
@@ -166,8 +165,6 @@ def get_device_data(device_id: str) -> Dict:
             current_raw = value
         elif mapped_code == "switch_1":
             switch_on = bool(value)
-        elif mapped_code == "lux":
-            light_level = value
         elif mapped_code == "temp":
             temperature_c = value
         elif mapped_code == "humidity":
@@ -203,7 +200,6 @@ def get_device_data(device_id: str) -> Dict:
         "current_ma": current_ma,
         "energy_kwh": energy_kwh,
         "energy_wh": energy_wh,
-        "light_level": light_level,
         "temperature_c": temperature_c,
         "humidity_percent": humidity_percent,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -211,10 +207,9 @@ def get_device_data(device_id: str) -> Dict:
 
 
 def _get_sensor_data(device_id: str) -> Dict:
-    """获取开发板的传感器数据（光照、温度、湿度）"""
+    """获取开发板的传感器数据（温度、湿度）"""
     if config.TEST_MODE:
         return {
-            "light_level": getattr(config, 'TEST_LIGHT_LEVEL', 100),
             "temperature_c": getattr(config, 'TEST_TEMPERATURE_C', 25),
             "humidity_percent": getattr(config, 'TEST_HUMIDITY_PERCENT', 60),
         }
@@ -224,15 +219,10 @@ def _get_sensor_data(device_id: str) -> Dict:
         status_resp = api.get(f"/v1.0/devices/{device_id}/status")
         result = status_resp.get("result", []) or []
         
-        light_level = None
         temperature_c = None
         humidity_percent = None
         
         dp_code_mapping = {
-            "107": "lux",
-            "203": "lux",
-            "lux": "lux",
-            "light": "lux",
             "106": "temp",
             "201": "temp",
             "temp": "temp",
@@ -248,22 +238,18 @@ def _get_sensor_data(device_id: str) -> Dict:
             value = item.get("value")
             mapped_code = dp_code_mapping.get(str(code), str(code))
             
-            if mapped_code == "lux":
-                light_level = value
-            elif mapped_code == "temp":
+            if mapped_code == "temp":
                 temperature_c = value
             elif mapped_code == "humidity":
                 humidity_percent = value
         
         return {
-            "light_level": light_level,
             "temperature_c": temperature_c,
             "humidity_percent": humidity_percent,
         }
     except Exception as e:
         print(f"[device_client] 获取开发板 {device_id} 传感器数据失败: {e}")
         return {
-            "light_level": None,
             "temperature_c": None,
             "humidity_percent": None,
         }
@@ -303,7 +289,6 @@ def get_all_devices(include_paired_boards=True) -> list:
             paired_board_id = config.DEVICE_PAIRINGS.get(device_id)
             if paired_board_id and paired_board_id in config.DEVICES:
                 sensor_data = _get_sensor_data(paired_board_id)
-                device_data["light_level"] = sensor_data.get("light_level")
                 device_data["temperature_c"] = sensor_data.get("temperature_c")
                 device_data["humidity_percent"] = sensor_data.get("humidity_percent")
 

@@ -41,8 +41,7 @@ def _get_db() -> sqlite3.Connection:
             recorded_at TEXT NOT NULL,            -- YYYY-MM-DD HH:MM:SS
             record_date TEXT NOT NULL,            -- YYYY-MM-DD (方便按天聚合)
             record_hour INTEGER NOT NULL,         -- 0-23 (方便按小时聚合)
-            power_w     REAL,                     -- 采集时的瞬时功率(W)
-            light_level REAL                      -- 光敏传感器数值(0-100,供作息分析用)
+            power_w     REAL                      -- 采集时的瞬时功率(W)
         )
     """)
     # 兼容旧表：如果 power_w 列不存在则添加
@@ -50,11 +49,6 @@ def _get_db() -> sqlite3.Connection:
         conn.execute("SELECT power_w FROM energy_records LIMIT 1")
     except sqlite3.OperationalError:
         conn.execute("ALTER TABLE energy_records ADD COLUMN power_w REAL")
-    # 兼容旧表：如果 light_level 列不存在则添加
-    try:
-        conn.execute("SELECT light_level FROM energy_records LIMIT 1")
-    except sqlite3.OperationalError:
-        conn.execute("ALTER TABLE energy_records ADD COLUMN light_level REAL")
     # 加索引,加快按设备/日期查询
     conn.execute("CREATE INDEX IF NOT EXISTS idx_dev_date ON energy_records(device_id, record_date)")
     conn.commit()
@@ -80,7 +74,7 @@ def record_once(device_id: str) -> Dict:
     conn = _get_db()
     try:
         conn.execute(
-            "INSERT INTO energy_records (device_id, energy_wh, recorded_at, record_date, record_hour, power_w, light_level) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO energy_records (device_id, energy_wh, recorded_at, record_date, record_hour, power_w) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 device_id,
                 float(data["energy_wh"]),
@@ -88,7 +82,6 @@ def record_once(device_id: str) -> Dict:
                 now.strftime("%Y-%m-%d"),
                 now.hour,
                 data.get("power_w"),
-                data.get("light_level"),
             ),
         )
         conn.commit()
@@ -104,8 +97,48 @@ def record_once(device_id: str) -> Dict:
 
 
 def record_all() -> List[Dict]:
-    """采集所有设备一次。"""
-    return [record_once(did) for did in config.DEVICES.keys()]
+    """采集所有设备一次，优先复用 device_client 的缓存数据，减少涂鸦云 API 调用。"""
+    try:
+        from device_client import get_all_devices
+        devices = get_all_devices(include_paired_boards=False)
+    except Exception as e:
+        print(f"[energy_history] 批量获取设备数据失败: {e}")
+        devices = []
+
+    results = []
+    for dev in devices:
+        device_id = dev.get("device_id")
+        if not device_id or "error" in dev:
+            continue
+        energy_wh = dev.get("energy_wh")
+        if energy_wh is None:
+            continue
+
+        now = datetime.now()
+        conn = _get_db()
+        try:
+            conn.execute(
+                "INSERT INTO energy_records (device_id, energy_wh, recorded_at, record_date, record_hour, power_w) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    device_id,
+                    float(energy_wh),
+                    now.strftime("%Y-%m-%d %H:%M:%S"),
+                    now.strftime("%Y-%m-%d"),
+                    now.hour,
+                    dev.get("power_w"),
+                ),
+            )
+            conn.commit()
+            results.append({
+                "device_id": device_id,
+                "energy_wh": energy_wh,
+                "power_w": dev.get("power_w"),
+                "recorded_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "ok": True,
+            })
+        finally:
+            conn.close()
+    return results
 
 
 def clear_today_records():
@@ -452,20 +485,20 @@ def get_records_by_date_range(device_id: str, start_date: str, end_date: str) ->
     """
     获取指定日期范围内的记录。
     device_id为空则查询所有设备。
-    返回: [{record_date, recorded_at, device_id, power_w, energy_wh, voltage_v, current_ma, light_level}, ...]
+    返回: [{record_date, recorded_at, device_id, power_w, energy_wh, voltage_v, current_ma}, ...]
     """
     conn = _get_db()
     try:
         if device_id:
             rows = conn.execute(
-                "SELECT record_date, recorded_at, device_id, power_w, energy_wh, light_level "
+                "SELECT record_date, recorded_at, device_id, power_w, energy_wh "
                 "FROM energy_records WHERE device_id=? AND record_date BETWEEN ? AND ? "
                 "ORDER BY recorded_at ASC",
                 (device_id, start_date, end_date),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT record_date, recorded_at, device_id, power_w, energy_wh, light_level "
+                "SELECT record_date, recorded_at, device_id, power_w, energy_wh "
                 "FROM energy_records WHERE record_date BETWEEN ? AND ? "
                 "ORDER BY recorded_at ASC",
                 (start_date, end_date),
@@ -480,7 +513,6 @@ def get_records_by_date_range(device_id: str, start_date: str, end_date: str) ->
                 "energy_wh": r[4],
                 "voltage_v": "",
                 "current_ma": "",
-                "light_level": r[5],
             }
             for r in rows
         ]
