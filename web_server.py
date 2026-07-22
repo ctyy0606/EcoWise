@@ -138,15 +138,23 @@ def index():
 @app.route('/api/send_code', methods=['POST'])
 def api_send_code():
     """发送验证码（模拟模式：返回验证码到前端显示）"""
-    data = request.get_json()
-    phone = data.get('phone', '').strip()
-    if not phone:
-        return jsonify({"success": False, "message": "请输入手机号"})
-    if not user_auth._validate_phone(phone):
-        return jsonify({"success": False, "message": "手机号格式不正确"})
-    code = user_auth.generate_code(phone)
-    # 模拟模式：直接返回验证码。上线时改为调用短信服务发送，不在响应中返回
-    return jsonify({"success": True, "message": "验证码已发送", "code": code})
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "请求数据格式错误"})
+        phone = data.get('phone', '').strip()
+        if not phone:
+            return jsonify({"success": False, "message": "请输入手机号"})
+        if not user_auth._validate_phone(phone):
+            return jsonify({"success": False, "message": "手机号格式不正确"})
+        code = user_auth.generate_code(phone)
+        # 模拟模式：直接返回验证码。上线时改为调用短信服务发送，不在响应中返回
+        return jsonify({"success": True, "message": "验证码已发送", "code": code})
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[SEND_CODE ERROR] {tb}")
+        return jsonify({"success": False, "message": f"服务器错误: {str(e)}"})
 
 
 @app.route('/api/register', methods=['POST'])

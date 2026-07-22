@@ -83,7 +83,14 @@ def generate_code(phone):
     code = str(secrets.randbelow(9000) + 1000)
     expire = time.time() + CODE_EXPIRE_SECONDS
     
-    conn = _get_db()
+    try:
+        conn = _get_db()
+    except Exception as e:
+        print(f"[user_auth] _get_db() failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+    
     try:
         # 清理过期验证码
         conn.execute("DELETE FROM verify_codes WHERE expire_time < ?", (time.time(),))
@@ -93,6 +100,11 @@ def generate_code(phone):
             (phone, code, expire)
         )
         conn.commit()
+    except Exception as e:
+        print(f"[user_auth] generate_code DB error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     finally:
         conn.close()
     
