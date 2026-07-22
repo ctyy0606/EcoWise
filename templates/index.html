@@ -860,7 +860,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- ============ 备忘录卡片 ============ -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="font-size:15px;color:#2d5a40;">📝 我的备忘录</h3>
+                <button onclick="loadMemos()" style="background:none;border:1px solid #a4e4ce;color:#2d5a40;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;">刷新</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                <input type="date" id="memo-date" style="flex:2;min-width:100px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                <input type="time" id="memo-time" value="09:00" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                <input type="text" id="memo-content" placeholder="备忘录内容..." style="flex:3;min-width:120px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                <button onclick="addMemo()" style="background:#7ba890;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">添加</button>
+            </div>
+            <div id="memo-list" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
     </div>
+</div>
 
     <script>
         // 全局错误捕获：手机浏览器如果 JS 崩溃，把错误显示出来
@@ -2712,6 +2728,7 @@
             pollNotifications();
             setInterval(pollNotifications, 30000);
             checkSimulationStatus();
+            loadMemos();
         }
 
         async function pollNotifications() {
@@ -2842,7 +2859,7 @@
                     btn.disabled = false;
                 }
             } catch (e) {
-                document.getElementById('login-error').textContent = '网络错误';
+                document.getElementById('login-error').textContent = '网络错误: ' + e.message;
                 btn.disabled = false;
             }
         }
@@ -3090,6 +3107,95 @@
             }
         }
 
+        // ============ 备忘录函数 ============
+        async function loadMemos() {
+            const list = document.getElementById('memo-list');
+            if (!list) return;
+            list.innerHTML = '<div style="text-align:center;padding:10px;color:#999;font-size:12px;">加载中...</div>';
+            try {
+                const resp = await fetch('/api/memos');
+                const data = await resp.json();
+                const memos = data.memos || [];
+                if (memos.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:15px;color:#999;font-size:12px;">暂无备忘录，在上方添加吧~</div>';
+                    return;
+                }
+                let html = '';
+                memos.forEach(function(m) {
+                    const status = m.notified ? '已提醒' : '待提醒';
+                    const statusColor = m.notified ? '#999' : '#7ba890';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;">';
+                    html += '<div style="flex:1;font-size:12px;">';
+                    html += '<span style="color:#2d5a40;font-weight:bold;">' + m.memo_date + ' ' + m.memo_time + '</span><br>';
+                    html += '<span style="color:#555;">' + m.content + '</span>';
+                    html += '</div>';
+                    html += '<div style="display:flex;align-items:center;gap:6px;">';
+                    html += '<span style="font-size:11px;color:' + statusColor + ';">' + status + '</span>';
+                    html += '<button onclick="deleteMemo(' + m.id + ')" style="background:none;border:1px solid #e0a0a0;color:#c45a5a;padding:2px 8px;border-radius:10px;cursor:pointer;font-size:10px;">删除</button>';
+                    html += '</div></div>';
+                });
+                list.innerHTML = html;
+            } catch (e) {
+                list.innerHTML = '<div style="text-align:center;padding:10px;color:#c45a5a;font-size:12px;">加载失败</div>';
+            }
+        }
+
+        async function addMemo() {
+            const date = document.getElementById('memo-date').value;
+            const time = document.getElementById('memo-time').value;
+            const content = document.getElementById('memo-content').value.trim();
+            if (!date || !content) {
+                customAlert('请填写日期和备忘录内容');
+                return;
+            }
+            try {
+                const resp = await fetch('/api/memos/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ memo_date: date, memo_time: time, content: content })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    document.getElementById('memo-content').value = '';
+                    loadMemos();
+                    customAlert('备忘录已添加：' + date + ' ' + time + ' 提醒你「' + content + '」');
+                } else {
+                    customAlert(data.message || '添加失败');
+                }
+            } catch (e) {
+                customAlert('网络错误');
+            }
+        }
+
+        async function deleteMemo(id) {
+            if (!await customConfirm('确认删除此备忘录吗？')) return;
+            try {
+                const resp = await fetch('/api/memos/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    loadMemos();
+                } else {
+                    customAlert(data.message || '删除失败');
+                }
+            } catch (e) {
+                customAlert('网络错误');
+            }
+        }
+
+        // 设置默认日期为今天
+        setTimeout(function() {
+            const dateInput = document.getElementById('memo-date');
+            if (dateInput) {
+                const today = new Date();
+                dateInput.value = today.getFullYear() + '-' +
+                    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(today.getDate()).padStart(2, '0');
+            }
+        }, 500);
 
         // 预加载：后台加载非关键数据
         setTimeout(() => {

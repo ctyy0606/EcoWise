@@ -226,6 +226,13 @@ SYSTEM_PROMPT = """你是 EcoWise 宿舍管家，名字叫小E。
    - 如果用户只说"提醒我XXX"但没有说时间，用"今天"询问用户具体时间
    - 格式示例：用户说"提醒我明天早上8点去上课"，你回复"好的，已设置闹钟，明天早上8点会提醒你去上课哦~"
    - 注意：闹钟是真实可用的，系统会在设定的时间通过浏览器推送通知提醒用户，所以请诚实告知用户闹钟已设置成功
+9. 备忘录规则：当用户说出"备忘录"、"记一下"、"别忘了"、"记得"等关键词，或者用户说"明天去图书馆"、"下周一开会"等包含日期+事件的句子时，系统会自动创建备忘录。你要做的是：
+   - 确认用户要设置备忘录
+   - 告诉用户备忘录内容、日期和时间
+   - 如果用户没有指定时间，会默认在早上9:00提醒，你要告知用户这个默认时间，并询问是否需要修改
+   - 格式示例：用户说"明天下午3点去图书馆"，你回复"好的，已为你添加备忘录：明天下午3点提醒你去图书馆~"
+   - 格式示例：用户说"7月25日交作业"，你回复"好的，已为你添加备忘录：7月25日早上9点提醒你交作业（默认时间），如果需要修改提醒时间可以告诉我哦~"
+   - 注意：备忘录是真实可用的，系统会在设定的时间通过浏览器推送通知提醒用户
 
 【注意事项】
 - 如果用电数据下方有提供，直接用
@@ -454,5 +461,24 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
                     reply += f"\n\n（闹钟设置失败：{result['message']}）"
         except Exception as e:
             print(f"[AI闹钟] 处理失败: {e}")
+
+    # ============ 备忘录处理 ============
+    # 如果用户消息包含日期+事件，自动解析并设置备忘录
+    memo_keywords = ["备忘录", "记一下", "别忘了", "记得", "明天", "后天", "下周一", "下周二", "下周三", "下周四", "下周五", "下周六", "下周日", "月", "日", "号"]
+    if any(kw in user_message for kw in memo_keywords):
+        # 避免与闹钟重复处理
+        if not any(kw in user_message for kw in alarm_keywords):
+            try:
+                from memo import parse_memo_from_text, add_memo
+                memo_info = parse_memo_from_text(user_message)
+                if memo_info["has_memo"] and memo_info["memo_date"] and memo_info["memo_time"]:
+                    result = add_memo(owner or "", memo_info["memo_date"], memo_info["memo_time"], memo_info["content"])
+                    if result["success"]:
+                        time_note = "（默认早上9:00，如需修改时间请告诉我）" if memo_info["default_time_used"] else ""
+                        reply += f"\n\n（📝系统已自动添加备忘录：{memo_info['memo_date']} {memo_info['memo_time']} 提醒你「{memo_info['content']}」{time_note}）"
+                    else:
+                        reply += f"\n\n（备忘录添加失败：{result['message']}）"
+            except Exception as e:
+                print(f"[AI备忘录] 处理失败: {e}")
 
     return reply
