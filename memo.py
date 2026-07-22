@@ -397,27 +397,33 @@ def _check_memos_loop():
     while True:
         try:
             due_memos = get_due_memos()
+            if due_memos:
+                print(f"[备忘录] 发现 {len(due_memos)} 条到期备忘录")
             for memo in due_memos:
                 try:
                     import push_notification
-                    push_notification.send_push_to_user(
+                    success, result = push_notification.send_push_to_user(
                         memo["user_phone"],
-                        title="📝 EcoWise 备忘录提醒",
+                        title="EcoWise 备忘录提醒",
                         body=memo["content"],
                         tag="memo",
                         require_interaction=True,
                     )
+                    if success:
+                        print(f"[备忘录] 已发送提醒: {memo['user_phone']} - {memo['content']}")
+                    else:
+                        print(f"[备忘录] 发送失败(用户{memo['user_phone']}): {result}")
+                    # 无论推送是否成功，都标记为已通知（避免重复尝试）
                     mark_notified(memo["id"])
-                    print(f"[备忘录] 已发送提醒: {memo['user_phone']} - {memo['content']}")
                 except Exception as e:
-                    print(f"[备忘录] 发送失败: {e}")
+                    print(f"[备忘录] 发送异常: {e}")
                     try:
                         mark_notified(memo["id"])
                     except Exception:
                         pass
         except Exception as e:
             print(f"[备忘录] 检查线程异常: {e}")
-        time.sleep(60)
+        time.sleep(30)
 
 
 def start_memo_thread():

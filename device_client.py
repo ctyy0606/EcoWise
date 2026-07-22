@@ -20,7 +20,7 @@ TOKEN_REFRESH_SECONDS: float = 6600.0
 # 设备数据缓存，按设备ID存储，避免频繁调用涂鸦云 API
 # 格式: { device_id: { "data": {...}, "timestamp": float } }
 _device_cache: Dict[str, Dict] = {}
-CACHE_TTL_SECONDS: float = 3.0
+CACHE_TTL_SECONDS: float = 0.5
 
 
 def _get_openapi() -> TuyaOpenAPI:
@@ -162,10 +162,16 @@ def get_device_data(device_id: str) -> Dict:
 
     print(f"[device_client] 设备 {device_id} 信息接口: {info_success}, 在线字段: {is_online}, 状态接口: {status_success}, DP数: {len(result)}")
 
-    # 兼容处理：涂鸦云 online 字段可能延迟，如果能拉到 DP 状态或状态接口成功，则认为设备在线
-    if not is_online and (result or status_success):
+    # 兼容处理：涂鸦云 online 字段可能延迟
+    # 设备信息API成功且online=True，或能拉到DP状态，都认为在线
+    if info_success and info.get("online", False):
+        is_online = True
+        print(f"[device_client] 设备 {device_id} 设备信息API返回在线")
+    elif not is_online and (result or status_success):
         is_online = True
         print(f"[device_client] 设备 {device_id} DP状态可用，修正在线状态为在线")
+
+    print(f"[device_client] 设备 {device_id} 最终在线状态: is_online={is_online}, info_success={info_success}, status_success={status_success}, dp_count={len(result)}")
 
     power_raw = None
     add_ele_raw = None

@@ -259,6 +259,7 @@ def register_simulation_routes(app):
         data = request.get_json() or {}
         old_value = SIMULATION_ENABLED
         SIMULATION_ENABLED = bool(data.get('enabled', not old_value))
+        print(f"[模拟模式] toggle called, old={old_value}, new={SIMULATION_ENABLED}")
         return jsonify({
             "success": True,
             "enabled": SIMULATION_ENABLED,

@@ -99,6 +99,28 @@ def _extract_city(text):
     return None
 
 
+def _get_weather_by_coords(lat, lng):
+    """通过经纬度获取天气（Open-Meteo 免费 API）"""
+    try:
+        weather_resp = requests.get(
+            f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lng}&current_weather=true",
+            timeout=5
+        )
+        weather = weather_resp.json().get("current_weather", {})
+        code = weather.get("weathercode", 0)
+        weather_desc = WEATHER_CODES.get(code, "未知")
+        temp = weather.get("temperature", 0)
+        wind = weather.get("windspeed", 0)
+        return {
+            "city": f"({lat:.2f},{lng:.2f})",
+            "weather": weather_desc,
+            "temp": temp,
+            "wind": wind,
+        }
+    except Exception:
+        return None
+
+
 def _get_weather_by_city(city_name):
     """通过城市名获取天气（Open-Meteo 免费 geocoding + forecast）"""
     try:
@@ -388,12 +410,13 @@ def analyze_habits(owner=None):
         }
 
 
-def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, user_lng=None):
+def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, user_lng=None, phone=None):
     """
     调用通义千问大模型，返回回复文本。
     自动注入当前时间、用电数据和天气作为上下文。可按用户过滤设备。
     支持多轮对话历史。
     支持通过 user_lat/user_lng 传入用户授权的位置。
+    phone: 用户手机号，用于备忘录等需要手机号的场景。
     """
     headers = {
         "Authorization": f"Bearer {config.QWEN_API_KEY}",
@@ -464,7 +487,7 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
 
     # ============ 备忘录处理 ============
     # 如果用户消息包含日期+事件，自动解析并设置备忘录
-    memo_keywords = ["备忘录", "记一下", "别忘了", "记得", "明天", "后天", "下周一", "下周二", "下周三", "下周四", "下周五", "下周六", "下周日", "月", "日", "号"]
+    memo_keywords = ["备忘录", "记一下", "别忘了", "记得", "明天", "后天", "下周一", "下周二", "下周三", "下周四", "下周五", "下周六", "下周日"]
     if any(kw in user_message for kw in memo_keywords):
         # 避免与闹钟重复处理
         if not any(kw in user_message for kw in alarm_keywords):
@@ -472,7 +495,9 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
                 from memo import parse_memo_from_text, add_memo
                 memo_info = parse_memo_from_text(user_message)
                 if memo_info["has_memo"] and memo_info["memo_date"] and memo_info["memo_time"]:
-                    result = add_memo(owner or "", memo_info["memo_date"], memo_info["memo_time"], memo_info["content"])
+                    # 使用 phone（手机号）而非 owner（昵称），确保与前端API的session['phone']一致
+                    memo_user = phone or owner or ""
+                    result = add_memo(memo_user, memo_info["memo_date"], memo_info["memo_time"], memo_info["content"])
                     if result["success"]:
                         time_note = "（默认早上9:00，如需修改时间请告诉我）" if memo_info["default_time_used"] else ""
                         reply += f"\n\n（📝系统已自动添加备忘录：{memo_info['memo_date']} {memo_info['memo_time']} 提醒你「{memo_info['content']}」{time_note}）"

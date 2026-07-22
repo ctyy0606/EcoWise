@@ -295,3 +295,17 @@ def broadcast_push(title, body, **kwargs):
 
     success_count = sum(1 for r in results if r["success"])
     return success_count > 0, results
+
+
+def check_push_status():
+    """检查推送通知系统状态"""
+    status = {
+        "pywebpush_installed": webpush is not None,
+        "vapid_keys_exist": os.path.exists(PUBLIC_KEY_FILE) and os.path.exists(PRIVATE_KEY_FILE),
+    }
+    try:
+        subs = get_all_subscriptions()
+        status["subscriptions_count"] = len(subs)
+    except:
+        status["subscriptions_count"] = 0
+    return status

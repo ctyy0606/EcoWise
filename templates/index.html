@@ -349,6 +349,9 @@
         }
         .tab-content {
             animation: fadeSlideIn 0.3s ease;
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
         @keyframes fadeSlideIn {
             from { opacity: 0; transform: translateY(8px); }
@@ -455,7 +458,11 @@
     <div class="header">
         <h1>EcoWise 宿舍助理</h1>
         <p>智能用电管理 · AI 助手</p>
-        <div class="user-info">
+        <div class="user-info" style="display:inline-flex;align-items:center;gap:10px;">
+            <a href="#" id="notif-bell" onclick="toggleNotificationPanel();return false;" style="font-size:22px;text-decoration:none;position:relative;" title="通知">
+                🔔
+                <span id="notif-badge" style="display:none;position:absolute;top:-6px;right:-10px;background:#ff4444;color:white;font-size:10px;width:18px;height:18px;border-radius:50%;text-align:center;line-height:18px;">0</span>
+            </a>
             <a href="#" class="logout-btn" onclick="doLogout();return false;">退出</a>
         </div>
     </div>
@@ -483,7 +490,7 @@
     </div>
 
     <div class="content">
-        <div id="tab-realtime">
+        <div id="tab-realtime" class="tab-content">
             <div id="realtime-loading" class="loading">加载中...</div>
             <div id="realtime-content" style="display: none;">
                 <div id="device-selector-area" style="margin-bottom:10px;">
@@ -537,7 +544,7 @@
             </div>
         </div>
 
-        <div id="tab-history" style="display: none;">
+        <div id="tab-history" class="tab-content" style="display: none;">
             <div class="tabs" id="history-tabs">
                 <div class="tab active" onclick="showHistory('today')">今日</div>
                 <div class="tab" onclick="showHistory('month')">本月</div>
@@ -609,7 +616,7 @@
 
         </div>
 
-        <div id="tab-bill" style="display: none;">
+        <div id="tab-bill" class="tab-content" style="display: none;">
             <div class="tabs" id="bill-tabs">
                 <div class="tab active" onclick="showBillView('my')">我的电费</div>
                 <div class="tab" onclick="showBillView('space')">空间分摊</div>
@@ -691,7 +698,7 @@
             </div>
         </div>
 
-        <div id="tab-ai" style="display: none;">
+        <div id="tab-ai" class="tab-content" style="display: none;">
             <div class="card">
                 <div class="card-title">用电周报</div>
                 <div id="report-step-start" style="display:block;">
@@ -742,7 +749,7 @@
             </div>
         </div>
 
-        <div id="tab-devices" style="display: none;">
+        <div id="tab-devices" class="tab-content" style="display: none;">
             <div class="card">
                 <div class="card-title" id="device-list-title">我的设备</div>
                 <div id="device-list"></div>
@@ -769,19 +776,19 @@
                         <div style="margin-bottom:10px;">
                             <span style="font-size:13px;color:#666;">模拟功率值（W）：</span>
                             <input type="range" id="test-power-slider" min="0" max="3000" step="100" value="1200" 
-                                   oninput="updateTestPower()" style="width:150px;margin-left:8px;">
+                                   oninput="updateTestPower();syncTestModeSettings()" style="width:150px;margin-left:8px;">
                             <span id="test-power-value">1200W</span>
                         </div>
                         <div style="margin-bottom:10px;">
                             <span style="font-size:13px;color:#666;">模拟温度（℃）：</span>
                             <input type="range" id="test-temp-slider" min="-10" max="60" step="1" value="25" 
-                                   oninput="updateTestTemp()" style="width:150px;margin-left:8px;">
+                                   oninput="updateTestTemp();syncTestModeSettings()" style="width:150px;margin-left:8px;">
                             <span id="test-temp-value">25℃</span>
                         </div>
                         <div style="margin-bottom:10px;">
                             <span style="font-size:13px;color:#666;">模拟湿度（%）：</span>
                             <input type="range" id="test-hum-slider" min="0" max="100" step="1" value="60" 
-                                   oninput="updateTestHumidity()" style="width:150px;margin-left:8px;">
+                                   oninput="updateTestHumidity();syncTestModeSettings()" style="width:150px;margin-left:8px;">
                             <span id="test-hum-value">60%</span>
                         </div>
                         <div style="font-size:12px;color:#888;">
@@ -864,22 +871,23 @@
                     <button onclick="applyCustomSimulation()" style="margin-top:10px;background:#7ba890;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">应用自定义数据</button>
                 </div>
             </div>
+
+            <!-- 备忘录卡片 -->
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="font-size:15px;color:#2d5a40;">📝 我的备忘录</h3>
+                    <button onclick="loadMemos()" style="background:none;border:1px solid #a4e4ce;color:#2d5a40;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;">刷新</button>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                    <input type="date" id="memo-date" style="flex:2;min-width:100px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <input type="time" id="memo-time" value="09:00" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <input type="text" id="memo-content" placeholder="备忘录内容..." style="flex:3;min-width:120px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <button onclick="addMemo()" style="background:#7ba890;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">添加</button>
+                </div>
+                <div id="memo-list" style="max-height:200px;overflow-y:auto;"></div>
+            </div>
         </div>
 
-        <!-- ============ 备忘录卡片 ============ -->
-        <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <h3 style="font-size:15px;color:#2d5a40;">📝 我的备忘录</h3>
-                <button onclick="loadMemos()" style="background:none;border:1px solid #a4e4ce;color:#2d5a40;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;">刷新</button>
-            </div>
-            <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                <input type="date" id="memo-date" style="flex:2;min-width:100px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
-                <input type="time" id="memo-time" value="09:00" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
-                <input type="text" id="memo-content" placeholder="备忘录内容..." style="flex:3;min-width:120px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
-                <button onclick="addMemo()" style="background:#7ba890;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">添加</button>
-            </div>
-            <div id="memo-list" style="max-height:200px;overflow-y:auto;"></div>
-        </div>
     </div>
 </div>
 
@@ -994,6 +1002,7 @@
         }
 
         function showTab(tabName) {
+            window.scrollTo(0, 0);
             document.querySelectorAll('#main-tabs .tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-btn-' + tabName).classList.add('active');
 
@@ -1310,7 +1319,7 @@
                     text = '设备当前离线，请检查插座网络状态';
                     level = 'normal';
                 } else if (!hasPowerData) {
-                    text = '请先插上用电设备';
+                    text = '用电正常，当前功率处于安全范围。';
                     level = 'normal';
                 } else if (d && d.violation) {
                     level = d.violation.level;
@@ -2060,8 +2069,13 @@
 
         async function requestLocation() {
             if (!navigator.geolocation) {
-                customAlert('你的浏览器不支持地理定位');
+                customAlert('你的浏览器不支持地理定位功能。AI将使用默认城市查询天气，你也可以直接告诉AI城市名（如"北京天气"）。');
                 return;
+            }
+            const locBtn = document.getElementById('location-btn');
+            if (locBtn) {
+                locBtn.textContent = '定位中...';
+                locBtn.disabled = true;
             }
             try {
                 const position = await new Promise((resolve, reject) => {
@@ -2083,7 +2097,12 @@
                     locBtn.style.background = '#5a8a6e';
                 }
             } catch (e) {
-                customAlert('获取位置失败，AI将使用默认城市查询天气。请确保浏览器已允许位置权限。');
+                let msg = '';
+                if (e.code === 1) msg = '位置访问被拒绝，请在浏览器设置中允许位置权限';
+                else if (e.code === 2) msg = '位置信息无法获取，请检查GPS/网络';
+                else if (e.code === 3) msg = '获取位置超时，请重试';
+                else msg = '获取位置失败，AI将使用默认城市查询天气。请确保浏览器已允许位置权限。';
+                customAlert(msg);
             }
         }
 
@@ -2133,6 +2152,7 @@
                 bubbles[bubbles.length - 1].textContent = '网络错误';
             }
             chat.scrollTop = chat.scrollHeight;
+            setTimeout(() => { if (typeof loadMemos === 'function') loadMemos(); }, 1500);
         }
 
         let currentReportType = 'personal';
@@ -2293,6 +2313,14 @@
                     document.getElementById('test-power-slider').value = data.power_w;
                     document.getElementById('test-power-value').textContent = data.power_w + 'W';
                 }
+                if (data.temperature_c !== undefined) {
+                    document.getElementById('test-temp-slider').value = data.temperature_c;
+                    document.getElementById('test-temp-value').textContent = data.temperature_c + '℃';
+                }
+                if (data.humidity_percent !== undefined) {
+                    document.getElementById('test-hum-slider').value = data.humidity_percent;
+                    document.getElementById('test-hum-value').textContent = data.humidity_percent + '%';
+                }
             } catch (e) {
                 console.error('加载测试模式状态失败:', e);
             }
@@ -2311,16 +2339,16 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message);
+                    await customAlert(data.message);
                     if (enabled) {
                         refreshData(true);
                     }
                 } else {
-                    alert('设置失败: ' + data.error);
+                    await customAlert('设置失败: ' + data.error);
                     document.getElementById('test-mode-switch').checked = !enabled;
                 }
             } catch (e) {
-                alert('设置失败: ' + e.message);
+                await customAlert('设置失败: ' + e.message);
                 document.getElementById('test-mode-switch').checked = !enabled;
             }
         }
@@ -2328,9 +2356,18 @@
         // ============ 模拟模式 ============
         let simulationEnabled = false;
 
-        async function toggleSimulation() {
+        async function toggleSimulation(event) {
+            const btn = document.getElementById('sim-toggle-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '切换中...';
+            }
             try {
-                const resp = await fetch('/api/simulation/toggle', { method: 'POST' });
+                const resp = await fetch('/api/simulation/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
                 const data = await resp.json();
                 simulationEnabled = data.enabled;
                 updateSimulationUI();
@@ -2338,8 +2375,14 @@
                     await loadSimScenes();
                 }
                 refreshData();
+                customAlert(data.message || (simulationEnabled ? '模拟模式已开启' : '模拟模式已关闭'));
             } catch (e) {
                 console.error('模拟模式切换失败:', e);
+                customAlert('模拟模式切换失败: ' + (e.message || '网络错误，请检查服务器连接'));
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                }
             }
         }
 
@@ -3112,6 +3155,8 @@
                     currentPushSubscription = subscription;
                     updatePushButton('subscribed');
                     customAlert('推送通知已开启！你可以关闭网页后仍能收到提醒。');
+                    // 发送测试推送验证
+                    fetch('/api/push/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' }).catch(() => {});
                 } else {
                     customAlert('订阅失败：' + (saveData.message || '未知错误，请检查是否已登录'));
                 }

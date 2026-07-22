@@ -234,17 +234,32 @@ def api_current_user():
 @app.route('/api/devices')
 @login_required
 def api_devices():
-    """获取当前用户的所有插座实时数据"""
+    """获取当前用户的所有插座实时数据。模拟模式下覆盖在线状态和数据。"""
     try:
         devices = device_client.get_all_devices()
-        print(f"[DEBUG] api_devices: raw devices count={len(devices)}")
-        for d in devices:
-            print(f"[DEBUG]   {d.get('device_id')}: owner={d.get('owner')}")
         nickname = _current_nickname()
-        print(f"[DEBUG] api_devices: current nickname={nickname}")
         filtered = [d for d in devices if d.get('owner') == nickname]
-        print(f"[DEBUG] api_devices: filtered count={len(filtered)}")
-
+        
+        # 模拟模式下：用模拟数据覆盖设备状态
+        try:
+            from simulation import SIMULATION_ENABLED, get_simulation_data
+        except ImportError:
+            SIMULATION_ENABLED = False
+        
+        if SIMULATION_ENABLED and filtered:
+            for dev in filtered:
+                dev_id = dev.get('device_id', '')
+                sim_data = get_simulation_data(dev_id)
+                dev['online'] = sim_data.get('online', True)
+                dev['switch_on'] = sim_data.get('switch_on', True)
+                dev['power_w'] = sim_data.get('power_w', 0)
+                dev['voltage_v'] = sim_data.get('voltage_v', 220)
+                dev['current_ma'] = sim_data.get('current_ma', 0)
+                if sim_data.get('temperature') is not None:
+                    dev['temperature_c'] = sim_data.get('temperature')
+                if sim_data.get('humidity') is not None:
+                    dev['humidity_percent'] = sim_data.get('humidity')
+        
         # 如果当前用户没有匹配设备，但配置中存在其他 owner 的设备，给出提示
         if not filtered and devices:
             other_owners = sorted(set(d.get('owner') for d in devices if d.get('owner')))
@@ -261,9 +276,30 @@ def api_devices():
 @app.route('/api/violation')
 @login_required
 def api_violation():
-    """获取当前用户的违规检测结果"""
+    """获取当前用户的违规检测结果。模拟模式下使用模拟数据。"""
     try:
+        try:
+            from simulation import SIMULATION_ENABLED, get_simulation_data
+        except ImportError:
+            SIMULATION_ENABLED = False
+
         devices = _get_user_devices()
+        nickname = _current_nickname()
+        
+        # 模拟模式下：用模拟数据覆盖设备数据，使违规检测生效
+        if SIMULATION_ENABLED and devices:
+            for dev in devices:
+                dev_id = dev.get('device_id', '')
+                sim_data = get_simulation_data(dev_id)
+                # 覆盖关键字段
+                dev['power_w'] = sim_data.get('power_w', 0)
+                dev['online'] = sim_data.get('online', True)
+                dev['switch_on'] = sim_data.get('switch_on', True)
+                dev['voltage_v'] = sim_data.get('voltage_v', 220)
+                dev['current_ma'] = sim_data.get('current_ma', 0)
+                dev['temperature_c'] = sim_data.get('temperature')
+                dev['humidity_percent'] = sim_data.get('humidity')
+        
         devices = violation_detector.detect_all_devices(devices)
         return jsonify(devices)
     except Exception as e:
@@ -747,10 +783,11 @@ def api_ai():
         message = data.get('message', '')
         history = data.get('history', [])
         owner = _current_nickname()
+        phone = session.get('phone', '')
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         user_lat = session.get('user_lat')
         user_lng = session.get('user_lng')
-        reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history, user_lat=user_lat, user_lng=user_lng)
+        reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history, user_lat=user_lat, user_lng=user_lng, phone=phone)
         return jsonify({"reply": reply})
     except Exception as e:
         return jsonify({"reply": "抱歉，AI 服务暂时不可用: " + str(e)}), 500
@@ -1410,15 +1447,28 @@ def api_test_mode():
         humidity_percent = data.get('humidity_percent', 60)
         
         if not enabled:
-            import auto_power_off
-            auto_power_off.clear_events()
-            import energy_history
-            energy_history.clear_today_records()
+            try:
+                import auto_power_off
+                auto_power_off.clear_events()
+            except Exception as e:
+                print(f"[DEBUG] clear_events failed: {e}")
+            try:
+                import energy_history
+                energy_history.clear_today_records()
+            except Exception as e:
+                print(f"[DEBUG] clear_today_records failed: {e}")
             if hasattr(config, '_test_start_time'):
-                delattr(config, '_test_start_time')
+                try:
+                    delattr(config, '_test_start_time')
+                except:
+                    pass
             print("[DEBUG] 测试模式关闭，已清除自动断电记录和今日采集数据")
         
-        config.TEST_MODE = enabled
+        try:
+            config.TEST_MODE = enabled
+        except Exception as e:
+            print(f"[DEBUG] 设置 TEST_MODE 失败: {e}, 通过 setattr 重试")
+            setattr(config, 'TEST_MODE', enabled)
         config.TEST_POWER_W = power_w
         config.TEST_TEMPERATURE_C = temperature_c
         config.TEST_HUMIDITY_PERCENT = humidity_percent
@@ -1531,6 +1581,18 @@ def api_push_send_test():
             require_interaction=True,
         )
         return jsonify({"success": ok, "result": result})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/push/status')
+@login_required
+def api_push_status():
+    """检查推送通知系统状态"""
+    try:
+        import push_notification
+        status = push_notification.check_push_status()
+        return jsonify({"success": True, "status": status})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
