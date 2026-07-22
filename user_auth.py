@@ -83,10 +83,12 @@ def generate_code(phone):
     code = str(secrets.randbelow(9000) + 1000)
     expire = time.time() + CODE_EXPIRE_SECONDS
     
+    print(f"[user_auth] generate_code: phone={phone}, code={code}, expire={expire}, DB_PATH={DB_PATH}")
+    
     try:
         conn = _get_db()
     except Exception as e:
-        print(f"[user_auth] _get_db() failed: {e}")
+        print(f"[user_auth] generate_code _get_db() FAILED: {e}")
         import traceback
         traceback.print_exc()
         raise
@@ -100,6 +102,7 @@ def generate_code(phone):
             (phone, code, expire)
         )
         conn.commit()
+        print(f"[user_auth] generate_code: SUCCESS - code stored in DB for phone={phone}")
     except Exception as e:
         print(f"[user_auth] generate_code DB error: {e}")
         import traceback
@@ -113,6 +116,7 @@ def generate_code(phone):
 
 def verify_code(phone, code):
     """校验验证码是否正确且未过期"""
+    print(f"[user_auth] verify_code: phone={phone}, input_code='{code}', DB_PATH={DB_PATH}")
     conn = _get_db()
     try:
         row = conn.execute(
@@ -121,21 +125,27 @@ def verify_code(phone, code):
         ).fetchone()
         
         if not row:
+            print(f"[user_auth] verify_code: FAIL - no code found for phone={phone}")
             return False
         
         stored_code, expire = row
+        now = time.time()
+        print(f"[user_auth] verify_code: stored_code='{stored_code}', input_code='{code}', expire={expire}, now={now}, expired={now > expire}")
         
-        if time.time() > expire:
+        if now > expire:
+            print(f"[user_auth] verify_code: FAIL - code expired (expired {now - expire:.1f}s ago)")
             conn.execute("DELETE FROM verify_codes WHERE phone = ?", (phone,))
             conn.commit()
             return False
         
         if stored_code != code:
+            print(f"[user_auth] verify_code: FAIL - code mismatch (stored='{stored_code}' vs input='{code}')")
             return False
         
         # 验证成功后删除，防止重复使用
         conn.execute("DELETE FROM verify_codes WHERE phone = ?", (phone,))
         conn.commit()
+        print(f"[user_auth] verify_code: SUCCESS for phone={phone}")
         return True
     finally:
         conn.close()

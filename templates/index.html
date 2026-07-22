@@ -2930,6 +2930,9 @@
                 document.getElementById('login-error').textContent = '请输入手机号和密码';
                 return;
             }
+            const loginBtn = document.querySelector('#login-form button');
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
             try {
                 const res = await fetch('/api/login', {
                     method: 'POST',
@@ -2944,7 +2947,10 @@
                     document.getElementById('login-error').textContent = data.message;
                 }
             } catch (e) {
-                document.getElementById('login-error').textContent = '网络错误: ' + (e.message || e.toString());
+                document.getElementById('login-error').textContent = '网络连接失败，请检查网络后重试。如使用手机流量，请尝试切换WiFi；如在中国大陆，可能需要VPN访问Render。错误详情: ' + (e.message || e.toString());
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
             }
         }
 
@@ -2962,6 +2968,9 @@
                 document.getElementById('login-error').textContent = '两次密码不一致';
                 return;
             }
+            const regBtn = document.querySelector('#register-form button');
+            regBtn.disabled = true;
+            regBtn.textContent = '注册中...';
             try {
                 const res = await fetch('/api/register', {
                     method: 'POST',
@@ -2982,7 +2991,10 @@
                     document.getElementById('login-error').textContent = data.message;
                 }
             } catch (e) {
-                document.getElementById('login-error').textContent = '网络错误: ' + (e.message || e.toString());
+                document.getElementById('login-error').textContent = '网络连接失败，请检查网络后重试。错误详情: ' + (e.message || e.toString());
+            } finally {
+                regBtn.disabled = false;
+                regBtn.textContent = '注册';
             }
         }
 

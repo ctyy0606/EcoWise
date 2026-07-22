@@ -184,6 +184,7 @@ def api_login():
             return jsonify({"success": False, "message": "请求数据格式错误"})
         phone = data.get('phone', '').strip()
         password = data.get('password', '')
+        print(f"[LOGIN] 收到登录请求: phone={phone}, password_len={len(password) if password else 0}")
         success, message, nickname = user_auth.login(phone, password)
         if success:
             session.permanent = True
@@ -195,7 +196,9 @@ def api_login():
         print(f"[LOGIN] 登录失败: phone={phone}, reason={message}")
         return jsonify({"success": False, "message": message})
     except Exception as e:
+        import traceback
         print(f"[LOGIN] 登录异常: {e}")
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"服务器错误: {str(e)}"})
 
 
@@ -626,6 +629,63 @@ def api_debug_product_dps(product_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/debug/check_db')
+def api_debug_check_db():
+    """调试API：检查数据库状态、验证码存储和用户表"""
+    try:
+        import os as _os
+        db_path = user_auth.DB_PATH
+        db_exists = _os.path.exists(db_path)
+        db_size = _os.path.getsize(db_path) if db_exists else 0
+        
+        verify_codes_info = []
+        users_info = []
+        db_error = None
+        
+        if db_exists:
+            try:
+                conn = user_auth._get_db()
+                try:
+                    codes = conn.execute("SELECT phone, code, expire_time FROM verify_codes").fetchall()
+                    now = time.time()
+                    for row in codes:
+                        verify_codes_info.append({
+                            "phone": row[0],
+                            "code": row[1],
+                            "expire_time": row[2],
+                            "expired": now > row[2],
+                            "remaining_seconds": round(row[2] - now, 1)
+                        })
+                    
+                    users = conn.execute("SELECT username, nickname, created_at FROM users").fetchall()
+                    for row in users:
+                        users_info.append({
+                            "phone": row[0],
+                            "nickname": row[1],
+                            "created_at": row[2]
+                        })
+                finally:
+                    conn.close()
+            except Exception as e:
+                db_error = str(e)
+        
+        return jsonify({
+            "db_path": db_path,
+            "db_exists": db_exists,
+            "db_size_bytes": db_size,
+            "db_error": db_error,
+            "verify_codes_count": len(verify_codes_info),
+            "verify_codes": verify_codes_info,
+            "users_count": len(users_info),
+            "users": users_info,
+            "server_time": time.time(),
+            "server_datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 
 @app.route('/api/ai', methods=['POST'])
