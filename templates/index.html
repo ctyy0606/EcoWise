@@ -2987,7 +2987,7 @@
             }
 
             try {
-                swRegistration = await navigator.serviceWorker.register('/sw.js');
+                swRegistration = await navigator.serviceWorker.register('/sw.js?v=2');
                 console.log('Service Worker 注册成功:', swRegistration.scope);
 
                 // 检查现有订阅

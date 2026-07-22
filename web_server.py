@@ -121,9 +121,11 @@ def _check_device_owner(device_id):
 def index():
     """首页"""
     resp = make_response(render_template('index.html'))
-    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
+    resp.headers['Surrogate-Control'] = 'no-store'
+    resp.headers['ETag'] = ''
     return resp
 
 

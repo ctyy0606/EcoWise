@@ -4,13 +4,14 @@
  * 支持浏览器推送通知 (Web Push) 和 PWA 离线缓存
  */
 
-const CACHE_NAME = 'ecowise-v1';
+const CACHE_NAME = 'ecowise-v2';
 const CACHE_URLS = [
-    '/',
-    '/static/manifest.json'
+    '/static/manifest.json',
+    '/static/icon-192.png',
+    '/static/icon-96.png'
 ];
 
-// 安装时缓存核心资源
+// 安装时缓存核心静态资源（不缓存首页！）
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -29,6 +30,26 @@ self.addEventListener('activate', event => {
             );
         }).then(() => self.clients.claim())
     );
+});
+
+// fetch事件：对HTML页面使用网络优先策略
+self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+    // 对HTML页面使用网络优先（确保总是获取最新版本）
+    if (event.request.mode === 'navigate' || 
+        event.request.headers.get('accept')?.includes('text/html')) {
+        event.respondWith(
+            fetch(event.request)
+                .catch(() => caches.match(event.request))
+        );
+    }
+    // 对静态资源使用缓存优先
+    else {
+        event.respondWith(
+            caches.match(event.request)
+                .then(response => response || fetch(event.request))
+        );
+    }
 });
 
 // 接收推送消息并显示通知
