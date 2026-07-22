@@ -56,7 +56,7 @@ def add_cors_headers(response):
     else:
         response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
 
@@ -1453,6 +1453,16 @@ except ImportError as e:
     print(f"[备忘录] 注册失败: {e}")
 
 if __name__ == '__main__':
+    # session cookie配置：根据环境自动切换
+    # Render部署时使用HTTPS，需要secure；本地开发使用HTTP，不需要secure
+    import os
+    is_production = os.environ.get("RENDER", "") != "" or os.environ.get("FLASK_ENV", "") == "production"
+    app.config['SESSION_COOKIE_SECURE'] = is_production
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    print(f"[DEBUG] SESSION_COOKIE_SECURE: {app.config['SESSION_COOKIE_SECURE']} (production={is_production})")
+
+
     import os
     CLEAR_DATA_ON_START = os.environ.get("CLEAR_DATA_ON_START", "false").lower() == "true"
 
@@ -1478,8 +1488,10 @@ if __name__ == '__main__':
         
         try:
             import user_auth
-            user_auth._get_db().execute("DELETE FROM users")
-            user_auth._get_db().commit()
+            conn = user_auth._get_db()
+            conn.execute("DELETE FROM users")
+            conn.commit()
+            conn.close()
         except:
             pass
 
@@ -1493,3 +1505,15 @@ if __name__ == '__main__':
     print("手机访问: http://你的电脑IP:5000")
     print("="*50)
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+
+
+def init_app():
+    import os
+    is_production = os.environ.get("RENDER", "") != "" or os.environ.get("FLASK_ENV", "") == "production"
+    app.config['SESSION_COOKIE_SECURE'] = is_production
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    print(f"[DEBUG init_app] SESSION_COOKIE_SECURE: {app.config['SESSION_COOKIE_SECURE']} (production={is_production})")
+
+# gunicorn启动时自动调用
+init_app()
