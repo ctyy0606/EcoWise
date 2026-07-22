@@ -418,6 +418,11 @@
     </style>
 </head>
 <body>
+
+    <!-- DEBUG: Script loading indicator -->
+    <div id="debug-banner" style="background:#ffe0b0;color:#664400;padding:6px 12px;text-align:center;font-size:12px;font-family:monospace;">
+        [DEBUG] Page loaded. JS starting...
+    </div>
     <div id="login-page" class="login-page">
         <div class="login-title">
             <div class="line1">欢迎来到</div>
@@ -879,12 +884,46 @@
 </div>
 
     <script>
+
+        // Direct error handler (runs first)
+        window.addEventListener('error', function(e) {
+            var banner = document.getElementById('debug-banner');
+            if (banner) {
+                banner.textContent = '[ERROR] ' + e.message + ' at line ' + e.lineno;
+                banner.style.background = '#ffcccc';
+                banner.style.color = '#cc0000';
+            }
+        });
+        
+        // Promise rejection handler
+        window.addEventListener('unhandledrejection', function(e) {
+            var banner = document.getElementById('debug-banner');
+            if (banner) {
+                banner.textContent = '[PROMISE ERROR] ' + (e.reason ? e.reason.message || e.reason : 'unknown');
+                banner.style.background = '#ffcccc';
+                banner.style.color = '#cc0000';
+            }
+        });
+
+        // Update debug banner when script loads
+        var _dbg = document.getElementById('debug-banner');
+        if (_dbg) { _dbg.textContent = '[DEBUG] JS script started. Functions loading...'; }
+
+        // Catch ALL syntax errors
+        try {
+            (function() { "use strict"; return true; })();
+            if (_dbg) { _dbg.textContent = '[DEBUG] Strict mode OK. Continuing...'; }
+        } catch(e) {
+            if (_dbg) { _dbg.textContent = '[CRITICAL] JS engine error: ' + e.message; }
+        }
+
         // 全局错误捕获：手机浏览器如果 JS 崩溃，把错误显示出来
         window.onerror = function(msg, url, line, col, err) {
             var el = document.getElementById('global-error-bar');
             if (!el) {
                 el = document.createElement('div');
                 el.id = 'global-error-bar';
+
                 el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#f8d7da;color:#721c24;padding:10px;z-index:9999;font-size:12px;max-height:120px;overflow:auto;';
                 document.body.appendChild(el);
             }
@@ -3224,8 +3263,21 @@
                 fetch('/api/carbon').catch(() => {});
             }
         }, 2000);
-        checkLogin();
-        registerServiceWorker();
+        // ===== Start application with debug =====
+        var _dbg2 = document.getElementById('debug-banner');
+        try {
+            if (_dbg2) { _dbg2.textContent = '[DEBUG] Calling checkLogin()...'; _dbg2.style.background = '#ffe0b0'; }
+            checkLogin();
+            if (_dbg2) { _dbg2.textContent = '[DEBUG] checkLogin() completed. Calling registerServiceWorker()...'; }
+            registerServiceWorker();
+            if (_dbg2) { _dbg2.textContent = '[DEBUG] All init complete! Page should be functional.'; }
+            setTimeout(function() {
+                var db = document.getElementById('debug-banner');
+                if (db) { db.style.display = 'none'; }
+            }, 8000);
+        } catch(e) {
+            if (_dbg2) { _dbg2.textContent = '[FATAL] Init error: ' + e.message; _dbg2.style.background = '#ff0000'; _dbg2.style.color = '#fff'; }
+        }
     </script>
 </body>
 </html>
