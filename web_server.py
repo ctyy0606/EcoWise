@@ -1,4 +1,4 @@
-"""
+﻿"""
 EcoWise 宿舍助理 - Flask 网页版服务器
 ======================================
 运行方式:
@@ -435,6 +435,7 @@ def api_debug_device_raw(device_id):
                 resp = api.get(endpoint)
                 results["endpoints"][endpoint] = {
                     "success": resp.get("success", False),
+                    "msg": resp.get("msg", "(no msg)"),
                     "result": resp.get("result", None),
                     "t": resp.get("t", None),
                 }
@@ -778,7 +779,7 @@ def api_export_csv():
     try:
         import csv
         from io import StringIO
-        from datetime import datetime
+        from datetime import datetime, timedelta`r`nimport time
         
         phone = session.get('phone')
         device_id = request.args.get('device_id', '')
