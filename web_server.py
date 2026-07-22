@@ -779,7 +779,8 @@ def api_export_csv():
     try:
         import csv
         from io import StringIO
-        from datetime import datetime, timedelta`r`nimport time
+        from datetime import datetime, timedelta
+        import time
         
         phone = session.get('phone')
         device_id = request.args.get('device_id', '')
@@ -1564,6 +1565,20 @@ try:
     print("[备忘录] 路由已注册，后台线程已启动")
 except ImportError as e:
     print(f"[备忘录] 注册失败: {e}")
+
+@app.route('/api/debug/auth')
+def api_debug_auth():
+    import config as cfg
+    from flask import jsonify
+    from device_client import _get_openapi as get_api
+    try:
+        api = get_api()
+        for did in cfg.DEVICES:
+            resp = api.get(f"/v1.0/devices/{did}")
+            return jsonify({"connect":"ok","device_id":did,"success":resp.get("success"),"msg":resp.get("msg","(no msg)"),"code":resp.get("code"),"endpoint":cfg.API_ENDPOINT,"access_id":cfg.ACCESS_ID[:8]+"..."})
+        return jsonify({"warning":"no devices"})
+    except Exception as e:
+        return jsonify({"auth_error":str(e),"tip":"检查ACCESS_ID和ACCESS_SECRET"}), 500
 
 if __name__ == '__main__':
     import os
