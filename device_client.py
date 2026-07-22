@@ -1,4 +1,4 @@
-"""
+﻿"""
 EcoWise 宿舍助理 - 涂鸦云 API 封装
 ================================
 只负责一件事:从涂鸦云拉取插座实时数据,并做单位换算。
@@ -39,9 +39,10 @@ def _get_openapi() -> TuyaOpenAPI:
             print(f"[涂鸦云] 已建立连接 (token 刷新)")
         except Exception as e:
             print(f"[涂鸦云] 连接失败: {e}")
-            if _openapi is None:
-                raise e
+            _openapi = None
+            raise e
     return _openapi
+
 
 
 def get_device_data(device_id: str) -> Dict:
@@ -112,7 +113,20 @@ def get_device_data(device_id: str) -> Dict:
         info = info_resp.get("result", {}) or {}
         is_online = info.get("online", False)
         if not info_success:
-            api_call_errors.append(f"设备信息API返回失败: {info_resp.get('msg', '未知错误')}")
+            msg = info_resp.get("msg", "")
+            api_call_errors.append(f"设备信息API返回失败: {msg}")
+            if "token" in msg.lower():
+                print(f"[device_client] 检测到token失效，强制重连并重试...")
+                _openapi = None
+                api = _get_openapi()
+                info_resp = api.get(f"/v1.0/devices/{device_id}")
+                info_success = info_resp.get("success", False)
+                info = info_resp.get("result", {}) or {}
+                is_online = info.get("online", False)
+                api_call_errors = []
+                msg = info_resp.get("msg", "")
+                if not info_success:
+                    api_call_errors.append(f"重连后设备信息API仍失败: {msg}")
     except Exception as e:
         error_msg = str(e)
         api_call_errors.append(f"设备信息查询异常: {error_msg}")
