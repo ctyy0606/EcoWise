@@ -7,7 +7,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💡</text></svg>">
     <title>EcoWise 宿舍助理</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js';this.onerror=function(){window.chartJsFailed=true}"></script>
+    <script src="/static/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #f0f8f5; min-height: 100vh; }
@@ -2017,19 +2017,6 @@
             if (input) {
                 input.value = question;
                 sendAiMessage();
-            }
-        }
-
-                    });
-                    const data = await res.json();
-                    await customAlert(data.message);
-                    if (data.success) {
-                        currentSpaceId = null;
-                        loadSpaceList();
-                    }
-                } catch (e) {
-                    await customAlert('网络错误');
-                }
             }
         }
 

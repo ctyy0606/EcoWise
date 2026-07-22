@@ -38,7 +38,7 @@ app.permanent_session_lifetime = timedelta(minutes=30)
 LOGOUT_GRACE_SECONDS = 300
 
 
-# ============ 静态文件路由（Service Worker 等） ============
+# ============ 静态文件路由（Service Worker 等根级文件） ============
 @app.route('/sw.js')
 def serve_sw():
     return app.send_static_file('sw.js')
@@ -46,10 +46,6 @@ def serve_sw():
 @app.route('/manifest.json')
 def serve_manifest():
     return app.send_static_file('manifest.json')
-
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return app.send_static_file(filename)
 
 
 @app.after_request
