@@ -7,6 +7,7 @@ EcoWise 宿舍助理 - Flask 网页版服务器
 然后在手机浏览器访问: http://电脑IP:5000
 """
 from flask import Flask, render_template, jsonify, request, session, Response, make_response
+from werkzeug.middleware.proxy_fix import ProxyFix
 from functools import wraps
 from datetime import timedelta, datetime
 import time
@@ -33,6 +34,9 @@ app = Flask(__name__)
 app.secret_key = "ecowise_dorm_secret_2026"
 # session 持久化时长：30分钟无操作自动过期
 app.permanent_session_lifetime = timedelta(minutes=30)
+
+# 信任代理服务器（Cloudflare/Render）转发的HTTPS协议头
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 # 退出后免密登录宽限期（秒）：5分钟内重新访问自动登录
 LOGOUT_GRACE_SECONDS = 300
@@ -147,30 +151,44 @@ def api_send_code():
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
-    data = request.get_json()
-    phone = data.get('phone', '').strip()
-    nickname = data.get('nickname', '').strip()
-    password = data.get('password', '')
-    code = data.get('code', '').strip()
-    success, message = user_auth.register(phone, nickname, password, code)
-    if success:
-        return jsonify({"success": True, "message": message})
-    return jsonify({"success": False, "message": message})
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "请求数据格式错误"})
+        phone = data.get('phone', '').strip()
+        nickname = data.get('nickname', '').strip()
+        password = data.get('password', '')
+        code = data.get('code', '').strip()
+        print(f"[REGISTER] phone={phone}, nickname={nickname}, code={code}")
+        success, message = user_auth.register(phone, nickname, password, code)
+        print(f"[REGISTER] result: success={success}, message={message}")
+        return jsonify({"success": success, "message": message})
+    except Exception as e:
+        print(f"[REGISTER] 注册异常: {e}")
+        return jsonify({"success": False, "message": f"服务器错误: {str(e)}"})
 
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
-    data = request.get_json()
-    phone = data.get('phone', '').strip()
-    password = data.get('password', '')
-    success, message, nickname = user_auth.login(phone, password)
-    if success:
-        session.permanent = True
-        session['phone'] = phone
-        session['nickname'] = nickname
-        session.pop('logout_time', None)
-        return jsonify({"success": True, "message": message, "username": nickname})
-    return jsonify({"success": False, "message": message})
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "请求数据格式错误"})
+        phone = data.get('phone', '').strip()
+        password = data.get('password', '')
+        success, message, nickname = user_auth.login(phone, password)
+        if success:
+            session.permanent = True
+            session['phone'] = phone
+            session['nickname'] = nickname
+            session.pop('logout_time', None)
+            print(f"[LOGIN] 登录成功: phone={phone}, nickname={nickname}")
+            return jsonify({"success": True, "message": message, "username": nickname})
+        print(f"[LOGIN] 登录失败: phone={phone}, reason={message}")
+        return jsonify({"success": False, "message": message})
+    except Exception as e:
+        print(f"[LOGIN] 登录异常: {e}")
+        return jsonify({"success": False, "message": f"服务器错误: {str(e)}"})
 
 
 @app.route('/api/logout', methods=['POST'])
@@ -1519,7 +1537,13 @@ def init_app():
     app.config['SESSION_COOKIE_SECURE'] = is_production
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    # 生产环境下刷新secret_key，确保session安全
+    if is_production and 'RENDER' in os.environ:
+        import hashlib, time as _time
+        app.secret_key = hashlib.sha256(f"ecowise_render_{_time.time()}".encode()).hexdigest()[:32]
     print(f"[DEBUG init_app] SESSION_COOKIE_SECURE: {app.config['SESSION_COOKIE_SECURE']} (production={is_production})")
+    print(f"[DEBUG init_app] SESSION_COOKIE_SAMESITE: {app.config['SESSION_COOKIE_SAMESITE']}")
+    print(f"[DEBUG init_app] ProxyFix installed: {app.wsgi_app.__class__.__name__}")
 
 # gunicorn启动时自动调用
 init_app()

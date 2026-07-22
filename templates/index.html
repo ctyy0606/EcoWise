@@ -2944,7 +2944,7 @@
                     document.getElementById('login-error').textContent = data.message;
                 }
             } catch (e) {
-                document.getElementById('login-error').textContent = '网络错误';
+                document.getElementById('login-error').textContent = '网络错误: ' + (e.message || e.toString());
             }
         }
 
@@ -2982,7 +2982,7 @@
                     document.getElementById('login-error').textContent = data.message;
                 }
             } catch (e) {
-                document.getElementById('login-error').textContent = '网络错误';
+                document.getElementById('login-error').textContent = '网络错误: ' + (e.message || e.toString());
             }
         }
 

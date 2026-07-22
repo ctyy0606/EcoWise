@@ -3,6 +3,7 @@ EcoWise 宿舍助理 - 用户认证模块
 ================================
 提供用户注册、登录、密码验证、验证码功能。
 密码使用 SHA256 + 随机 salt 加密存储。
+验证码使用 SQLite 数据库存储（而非内存），确保多进程/重启后不丢失。
 """
 import os
 import sqlite3
@@ -14,8 +15,6 @@ from datetime import datetime
 
 DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
 
-# 验证码临时存储: {phone: (code, expire_timestamp)}
-_code_store = {}
 CODE_EXPIRE_SECONDS = 300  # 验证码5分钟有效
 
 
@@ -29,6 +28,14 @@ def _get_db():
             nickname      TEXT NOT NULL DEFAULT '',
             password_hash TEXT NOT NULL,
             created_at    TEXT NOT NULL
+        )
+    """)
+    # 验证码存储表
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS verify_codes (
+            phone       TEXT PRIMARY KEY,
+            code        TEXT NOT NULL,
+            expire_time REAL NOT NULL
         )
     """)
     # 兼容旧库：如果 nickname 列不存在则添加
@@ -72,31 +79,54 @@ def _validate_password(password):
 
 
 def generate_code(phone):
-    """生成4位验证码，存入内存，5分钟有效。返回验证码字符串。"""
+    """生成4位验证码，存入SQLite数据库，5分钟有效。返回验证码字符串。"""
     code = str(secrets.randbelow(9000) + 1000)
-    _code_store[phone] = (code, time.time() + CODE_EXPIRE_SECONDS)
-    # 清理过期验证码
-    now = time.time()
-    expired = [k for k, v in _code_store.items() if v[1] < now]
-    for k in expired:
-        del _code_store[k]
+    expire = time.time() + CODE_EXPIRE_SECONDS
+    
+    conn = _get_db()
+    try:
+        # 清理过期验证码
+        conn.execute("DELETE FROM verify_codes WHERE expire_time < ?", (time.time(),))
+        # 插入或更新验证码
+        conn.execute(
+            "INSERT OR REPLACE INTO verify_codes (phone, code, expire_time) VALUES (?, ?, ?)",
+            (phone, code, expire)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    
     return code
 
 
 def verify_code(phone, code):
     """校验验证码是否正确且未过期"""
-    record = _code_store.get(phone)
-    if not record:
-        return False
-    stored_code, expire = record
-    if time.time() > expire:
-        del _code_store[phone]
-        return False
-    if stored_code != code:
-        return False
-    # 验证成功后删除，防止重复使用
-    del _code_store[phone]
-    return True
+    conn = _get_db()
+    try:
+        row = conn.execute(
+            "SELECT code, expire_time FROM verify_codes WHERE phone = ?",
+            (phone,)
+        ).fetchone()
+        
+        if not row:
+            return False
+        
+        stored_code, expire = row
+        
+        if time.time() > expire:
+            conn.execute("DELETE FROM verify_codes WHERE phone = ?", (phone,))
+            conn.commit()
+            return False
+        
+        if stored_code != code:
+            return False
+        
+        # 验证成功后删除，防止重复使用
+        conn.execute("DELETE FROM verify_codes WHERE phone = ?", (phone,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
 
 
 def register(phone, nickname, password, code):
