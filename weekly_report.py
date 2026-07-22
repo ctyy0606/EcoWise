@@ -16,7 +16,8 @@ API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 
 
 def _get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA busy_timeout=5000;")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS weekly_reports (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,

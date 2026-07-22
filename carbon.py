@@ -104,7 +104,8 @@ def get_total_carbon(device_id=None):
     累计碳排放（从最早记录到当前）。
     返回 {total_kwh, carbon_kg, start_date, trees_equivalent}
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA busy_timeout=5000;")
     try:
         if device_id:
             first = conn.execute(

@@ -32,7 +32,8 @@ DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expa
 
 def _get_db() -> sqlite3.Connection:
     """获取数据库连接,首次调用时自动建表。"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA busy_timeout=5000;")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS energy_records (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,

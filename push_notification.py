@@ -35,7 +35,8 @@ PRIVATE_KEY_FILE = os.path.join(_TEMP_DIR, "vapid_private_key.txt")
 
 
 def _get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA busy_timeout=5000;")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS push_subscriptions (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,

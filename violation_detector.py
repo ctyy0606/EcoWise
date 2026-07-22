@@ -25,7 +25,8 @@ DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expa
 
 
 def _get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA busy_timeout=5000;")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS violation_events (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
