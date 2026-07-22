@@ -28,8 +28,22 @@ DB_PATH = os.path.join(
 
 def _get_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.execute("PRAGMA busy_timeout=5000;")
+    max_retries = 3
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=30)
+            conn.execute("PRAGMA busy_timeout=5000;")
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            break
+        except sqlite3.OperationalError as e:
+            last_error = e
+            print(f"[memo] Database connection attempt {attempt+1} failed: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+            else:
+                raise last_error
     conn.execute("""
         CREATE TABLE IF NOT EXISTS memos (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -128,6 +128,10 @@ def get_simulation_data(device_id):
     返回格式与 device_client.get_all_devices() 中单个设备结构对齐。
     """
     data = _current_data if _current_data else SCENES.get(_current_scene, {})
+    power_w = data.get("power", 0)
+    temp = data.get("temperature")
+    humidity = data.get("humidity", None)
+    alert = calculate_sim_alert(power_w, temp, humidity)
     return {
         "device_id": device_id,
         "device_name": f"模拟设备({device_id})",
@@ -141,8 +145,9 @@ def get_simulation_data(device_id):
         "energy_wh": 0,
         "temperature": data.get("temperature"),
         "humidity": data.get("humidity"),
-        "led_color": data.get("led", "green"),
-        "buzzer": data.get("buzzer", False),
+        "led_color": alert["led"],
+        "buzzer": alert["buzzer"],
+        "violation": {"level": alert["violation_level"]},
         "timestamp": _now_str(),
         "_simulated": True,
     }
@@ -232,6 +237,44 @@ def _now_str():
     """返回当前时间的格式化字符串。"""
     from datetime import datetime
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def calculate_sim_alert(power, temperature, humidity):
+    """根据模拟数据计算LED颜色、蜂鸣器状态和违规级别。
+    
+    规则：
+    - 正常（功率<=450W, 温度5-35℃, 湿度20-80%）：LED熄灭，蜂鸣器不响
+    - 功率>800W：LED红色，蜂鸣器响，违规级别violation
+    - 功率450-800W：LED黄色，蜂鸣器不响，违规级别warning
+    - 温度>35℃或<5℃：LED红色，蜂鸣器不响，违规级别warning
+    - 湿度>80%或<20%：LED红色，蜂鸣器不响，违规级别warning
+    """
+    led = "off"
+    buzzer = False
+    violation_level = "normal"
+    
+    if power is not None and power > 800:
+        led = "red"
+        buzzer = True
+        violation_level = "violation"
+    elif power is not None and power > 450:
+        led = "yellow"
+        buzzer = False
+        violation_level = "warning"
+    
+    if temperature is not None and (temperature > 35 or temperature < 5):
+        led = "red"
+        buzzer = False
+        if violation_level == "normal":
+            violation_level = "warning"
+    
+    if humidity is not None and (humidity > 80 or humidity < 20):
+        led = "red"
+        buzzer = False
+        if violation_level == "normal":
+            violation_level = "warning"
+    
+    return {"led": led, "buzzer": buzzer, "violation_level": violation_level}
 
 
 # ============ 6. API 路由注册 ============

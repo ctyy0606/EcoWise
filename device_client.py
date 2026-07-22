@@ -241,6 +241,20 @@ def get_device_data(device_id: str) -> Dict:
         or "sensor" in name.lower()
     )
 
+    if not info_success and not status_success:
+        if device_id in _device_cache:
+            cached = _device_cache[device_id].get("data", {})
+            cached_online = cached.get("online")
+            if cached_online:
+                is_online = True
+                print(f"[device_client] 设备 {device_id} API失败，使用缓存在线状态")
+            else:
+                is_online = False
+                print(f"[device_client] 设备 {device_id} API全部失败且缓存离线，标记离线")
+        else:
+            is_online = False
+            print(f"[device_client] 设备 {device_id} API全部失败，无缓存，标记离线")
+
     print(f"[device_client] 设备 {device_id} - API调用结果: info_success={info_success}, status_success={status_success}, is_online={is_online}, has_data={bool(result)}, switch_on={switch_on}")
 
     return {

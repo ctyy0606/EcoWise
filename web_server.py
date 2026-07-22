@@ -261,6 +261,10 @@ def api_devices():
                     dev['temperature_c'] = sim_data.get('temperature')
                 if sim_data.get('humidity') is not None:
                     dev['humidity_percent'] = sim_data.get('humidity')
+                if sim_data.get('violation'):
+                    dev['violation'] = sim_data['violation']
+                dev['led_color'] = sim_data.get('led_color', 'green')
+                dev['buzzer'] = sim_data.get('buzzer', False)
         
         # 如果当前用户没有匹配设备，但配置中存在其他 owner 的设备，给出提示
         if not filtered and devices:
@@ -293,14 +297,18 @@ def api_violation():
             for dev in devices:
                 dev_id = dev.get('device_id', '')
                 sim_data = get_simulation_data(dev_id)
-                # 覆盖关键字段
                 dev['power_w'] = sim_data.get('power_w', 0)
                 dev['online'] = sim_data.get('online', True)
                 dev['switch_on'] = sim_data.get('switch_on', True)
                 dev['voltage_v'] = sim_data.get('voltage_v', 220)
                 dev['current_ma'] = sim_data.get('current_ma', 0)
-                dev['temperature_c'] = sim_data.get('temperature')
-                dev['humidity_percent'] = sim_data.get('humidity')
+                if sim_data.get('temperature') is not None:
+                    dev['temperature_c'] = sim_data.get('temperature')
+                if sim_data.get('humidity') is not None:
+                    dev['humidity_percent'] = sim_data.get('humidity')
+                # 从模拟数据中注入违规信息
+                if sim_data.get('violation'):
+                    dev['violation'] = sim_data['violation']
         
         devices = violation_detector.detect_all_devices(devices)
         return jsonify(devices)

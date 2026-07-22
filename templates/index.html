@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -747,6 +747,22 @@
                     <button onclick="sendAiMessage()">发送</button>
                 </div>
             </div>
+
+<!-- 备忘录卡片 -->
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="font-size:15px;color:#2d5a40;">📝 我的备忘录</h3>
+                    <button onclick="loadMemos()" style="background:none;border:1px solid #a4e4ce;color:#2d5a40;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;">刷新</button>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                    <input type="date" id="memo-date" style="flex:2;min-width:100px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <input type="time" id="memo-time" value="09:00" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <input type="text" id="memo-content" placeholder="备忘录内容..." style="flex:3;min-width:120px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <button onclick="addMemo()" style="background:#7ba890;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">添加</button>
+                </div>
+                <div id="memo-list" style="max-height:200px;overflow-y:auto;"></div>
+            </div>
+
         </div>
 
         <div id="tab-devices" class="tab-content" style="display: none;">
@@ -838,20 +854,7 @@
                 </div>
             </div>
 
-            <!-- 备忘录卡片 -->
-            <div class="card">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                    <h3 style="font-size:15px;color:#2d5a40;">📝 我的备忘录</h3>
-                    <button onclick="loadMemos()" style="background:none;border:1px solid #a4e4ce;color:#2d5a40;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;">刷新</button>
-                </div>
-                <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                    <input type="date" id="memo-date" style="flex:2;min-width:100px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
-                    <input type="time" id="memo-time" value="09:00" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
-                    <input type="text" id="memo-content" placeholder="备忘录内容..." style="flex:3;min-width:120px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
-                    <button onclick="addMemo()" style="background:#7ba890;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">添加</button>
-                </div>
-                <div id="memo-list" style="max-height:200px;overflow-y:auto;"></div>
-            </div>
+
         </div>
 
     </div>
@@ -1186,7 +1189,7 @@
                     switchBtn.textContent = d.switch_on ? '关闭插座' : '开启插座';
                     switchBtn.disabled = false;
                 }
-                await Promise.all([loadViolationStatus(), loadAutoOffStatus()]);
+                await loadAutoOffStatus();
                 // 更新模拟模式数据
                 if (simulationEnabled && currentDevice) {
                     try {
@@ -1204,8 +1207,10 @@
                             }
                         }
                     } catch (e) {}
+                    await loadViolationStatus();
                 } else {
                     updateLEDBuzzer({led: 'off', buzzer: false});
+                        await loadViolationStatus();
                 }
                 loadingEl.style.display = 'none';
                 contentEl.style.display = 'block';
@@ -1267,23 +1272,52 @@
 
         async function loadViolationStatus() {
             try {
-                const res = await fetch('/api/violation');
-                const devices = await res.json();
                 const el = document.getElementById('violation-status');
                 if (!el) return;
-                const d = devices.find(d => d.device_id === selectedDeviceId) || devices[0];
                 let level = 'normal';
                 let text = '';
-                
+
                 const isOnline = currentDevice && currentDevice.online;
+
+                if (simulationEnabled && currentDevice) {
+                    const power = parseFloat(document.getElementById('power-value').textContent) || 0;
+                    const tempEl = document.getElementById('temperature-value');
+                    const humEl = document.getElementById('humidity-value');
+                    const temp = tempEl ? parseFloat(tempEl.textContent) : null;
+                    const hum = humEl ? parseFloat(humEl.textContent) : null;
+                    
+                    if (!isOnline) {
+                        text = '设备当前离线，请检查插座网络状态';
+                    } else if (power > 800) {
+                        level = 'violation';
+                        text = '违规告警！功率超过红线(800W)，疑似使用违规电器，请立即关闭！';
+                    } else if (power > 450) {
+                        level = 'warning';
+                        text = '限电预警！功率接近限电阈值(450W)，建议关闭部分大功率设备。';
+                    } else if (temp !== null && !isNaN(temp) && (temp > 35 || temp < 5)) {
+                        level = 'warning';
+                        text = '温度异常(' + temp + '℃)，请注意环境温度！';
+                    } else if (hum !== null && !isNaN(hum) && (hum > 80 || hum < 20)) {
+                        level = 'warning';
+                        text = '湿度异常(' + hum + '%)，请注意环境湿度！';
+                    } else {
+                        text = '用电正常，当前功率处于安全范围。';
+                    }
+                    
+                    el.className = 'violation-' + (level === 'violation' ? 'danger' : level === 'warning' ? 'warning' : 'normal');
+                    el.textContent = text;
+                    return;
+                }
+
+                const res = await fetch('/api/violation');
+                const devices = await res.json();
+                const d = devices.find(d => d.device_id === selectedDeviceId) || devices[0];
                 const hasPowerData = currentDevice && currentDevice.power_w !== null && currentDevice.power_w > 0;
-                
+
                 if (!isOnline) {
                     text = '设备当前离线，请检查插座网络状态';
-                    level = 'normal';
                 } else if (!hasPowerData) {
                     text = '用电正常，当前功率处于安全范围。';
-                    level = 'normal';
                 } else if (d && d.violation) {
                     level = d.violation.level;
                     if (level === 'violation') {
@@ -1292,11 +1326,11 @@
                         text = '限电预警！功率接近限电阈值，建议关闭部分大功率设备。';
                     }
                 }
-                
+
                 if (!text) {
                     text = '用电正常，当前功率处于安全范围。';
                 }
-                
+
                 el.className = 'violation-' + (level === 'violation' ? 'danger' : level === 'warning' ? 'warning' : 'normal');
                 el.textContent = text;
             } catch (e) {}
@@ -2317,14 +2351,30 @@
 
         async function applySimScene(sceneName) {
             try {
+                const allBtns = document.querySelectorAll('#sim-scene-buttons button');
+                allBtns.forEach(b => {
+                    b.style.background = '#f0f7f4';
+                    b.style.color = '#2d5a40';
+                    b.style.fontWeight = 'normal';
+                    b.style.borderColor = '#a4e4ce';
+                });
+                
+                const clickedBtn = event && event.target ? event.target : null;
+                if (clickedBtn && clickedBtn.tagName === 'BUTTON') {
+                    clickedBtn.style.background = '#2d5a40';
+                    clickedBtn.style.color = 'white';
+                    clickedBtn.style.fontWeight = 'bold';
+                    clickedBtn.style.borderColor = '#2d5a40';
+                }
+                
                 await fetch('/api/simulation/scene', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({scene: sceneName})
                 });
                 refreshData();
-                loadSimScenes();
-            await customAlert(`已切换到场景：${sceneName}`);} catch (e) {
+            await customAlert('已切换到场景：' + sceneName);
+            } catch (e) {       
                 console.error('场景切换失败:', e);
             }
         }
@@ -2392,7 +2442,7 @@
                 'green': { color: '#4caf50', text: '正常', shadow: 'rgba(76,175,80,0.6)' },
                 'yellow': { color: '#ffc107', text: '预警', shadow: 'rgba(255,193,7,0.6)' },
                 'red': { color: '#f44336', text: '告警', shadow: 'rgba(244,67,54,0.6)' },
-                'off': { color: '#666', text: '熄灭', shadow: 'rgba(100,100,100,0.3)' }
+                'off': { color: '#aaa', text: '熄灭', shadow: 'rgba(170,170,170,0.3)' }
             };
             const cm = colorMap[ledColor] || colorMap['off'];
             if (indicator) {
@@ -3153,11 +3203,18 @@
             }
         }
 
-        async function addMemo() {
+        async function addMemo(event) {
+            const btn = event && event.target ? event.target : document.querySelector('button[onclick*=
+"
+addMemo
+"
+]');
+            if (btn) { btn.disabled = true; btn.textContent = '添加中...'; }
             const date = document.getElementById('memo-date').value;
             const time = document.getElementById('memo-time').value;
             const content = document.getElementById('memo-content').value.trim();
             if (!date || !content) {
+                if (btn) { btn.disabled = false; btn.textContent = '添加'; }
                 customAlert('请填写日期和备忘录内容');
                 return;
             }
@@ -3171,12 +3228,14 @@
                 if (data.success) {
                     document.getElementById('memo-content').value = '';
                     loadMemos();
-                    customAlert('备忘录已添加：' + date + ' ' + time + ' 提醒你「' + content + '」');
+                    customAlert('备忘录已添加：' + date + ' ' + time + ' 提醒你' + String.fromCharCode(12300) + content + String.fromCharCode(12301));
                 } else {
                     customAlert(data.message || '添加失败');
                 }
             } catch (e) {
-                customAlert('网络错误');
+                customAlert('添加失败：' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '添加'; }
             }
         }
 
