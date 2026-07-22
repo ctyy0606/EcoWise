@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#2d5a40">
     <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💡</text></svg>">
     <title>EcoWise 宿舍助理</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="window.chartJsFailed=true"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js';this.onerror=function(){window.chartJsFailed=true}"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #f0f8f5; min-height: 100vh; }
@@ -970,7 +971,8 @@
 
         function showHistory(tabName) {
             document.querySelectorAll('#history-tabs .tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            const activeTab = document.querySelector('#history-tabs .tab[onclick*="' + tabName + '"]');
+            if (activeTab) activeTab.classList.add('active');
 
             document.getElementById('history-today').style.display = tabName === 'today' ? 'block' : 'none';
             document.getElementById('history-month').style.display = tabName === 'month' ? 'block' : 'none';
@@ -1329,6 +1331,10 @@
         function drawChart(canvasId, data, labels, valueField, unit, enableScroll = false, maxTicks = null) {
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js 未加载，跳过图表绘制');
+                return;
+            }
 
             valueField = valueField || 'kwh';
             unit = unit || '度';
@@ -1659,7 +1665,8 @@
 
         function showBillView(view) {
             document.querySelectorAll('#bill-tabs .tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            const activeTab = document.querySelector('#bill-tabs .tab[onclick*="' + view + '"]');
+            if (activeTab) activeTab.classList.add('active');
             document.getElementById('bill-my').style.display = view === 'my' ? 'block' : 'none';
             document.getElementById('bill-space').style.display = view === 'space' ? 'block' : 'none';
             hideAllSpaceForms();
@@ -1961,6 +1968,19 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ space_id: currentSpaceId })
+                    });
+                    const data = await res.json();
+                    await customAlert(data.message);
+                    if (data.success) {
+                        currentSpaceId = null;
+                        loadSpaceList();
+                    }
+                } catch (e) {
+                    await customAlert('网络错误');
+                }
+            }
+        }
+
         let userLocation = null;
 
         async function requestLocation() {
