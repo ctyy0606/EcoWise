@@ -34,7 +34,11 @@ def _get_openapi() -> TuyaOpenAPI:
                 config.ACCESS_ID,
                 config.ACCESS_SECRET,
             )
-            _openapi.connect()
+            connect_resp = _openapi.connect()
+            if not connect_resp.get("success", False):
+                err_msg = connect_resp.get("msg", "未知错误")
+                err_code = connect_resp.get("code", "?")
+                raise RuntimeError(f"涂鸦云连接失败(code={err_code}): {err_msg}")
             _last_connect_time = now
             print(f"[涂鸦云] 已建立连接 (token 刷新)")
         except Exception as e:

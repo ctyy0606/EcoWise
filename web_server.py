@@ -1,4 +1,4 @@
-﻿"""
+"""
 EcoWise 宿舍助理 - Flask 网页版服务器
 ======================================
 运行方式:
@@ -1568,17 +1568,31 @@ except ImportError as e:
 
 @app.route('/api/debug/auth')
 def api_debug_auth():
-    import config as cfg
     from flask import jsonify
-    from device_client import _get_openapi as get_api
+    import config as cfg
+    from tuya_connector import TuyaOpenAPI
+    result = {"endpoint": cfg.API_ENDPOINT, "access_id_prefix": cfg.ACCESS_ID[:8]+"..."}
     try:
-        api = get_api()
-        for did in cfg.DEVICES:
-            resp = api.get(f"/v1.0/devices/{did}")
-            return jsonify({"connect":"ok","device_id":did,"success":resp.get("success"),"msg":resp.get("msg","(no msg)"),"code":resp.get("code"),"endpoint":cfg.API_ENDPOINT,"access_id":cfg.ACCESS_ID[:8]+"..."})
-        return jsonify({"warning":"no devices"})
+        test_api = TuyaOpenAPI(cfg.API_ENDPOINT, cfg.ACCESS_ID, cfg.ACCESS_SECRET)
+        connect_resp = test_api.connect()
+        result["connect_response"] = {
+            "success": connect_resp.get("success"),
+            "msg": connect_resp.get("msg", "(no msg)"),
+            "code": connect_resp.get("code"),
+        }
+        if connect_resp.get("success"):
+            result["connect"] = "ok"
+            result["token_obtained"] = bool(test_api.token_info and test_api.token_info.access_token)
+            for did in cfg.DEVICES:
+                resp = test_api.get(f"/v1.0/devices/{did}")
+                result["device_test"] = {"device_id": did, "success": resp.get("success"), "msg": resp.get("msg","(no msg)"), "code": resp.get("code")}
+                break
+        else:
+            result["connect"] = "failed"
+        return jsonify(result)
     except Exception as e:
-        return jsonify({"auth_error":str(e),"tip":"检查ACCESS_ID和ACCESS_SECRET"}), 500
+        result["error"] = str(e)
+        return jsonify(result), 200
 
 if __name__ == '__main__':
     import os
