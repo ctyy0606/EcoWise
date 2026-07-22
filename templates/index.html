@@ -762,40 +762,6 @@
                 <button class="btn" id="push-toggle-btn" style="margin-top:8px;background:#7ba890;" onclick="togglePushSubscription()">🔔 开启推送</button>
                 <button class="btn" style="margin-top:8px;background:#6ba889;" onclick="sendTestPush()">📲 测试推送通知</button>
             </div>
-            <div class="card" id="test-mode-card">
-                <div class="card-title">🔧 测试模式</div>
-                <div id="test-mode-content">
-                    <div style="padding:10px;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                            <span>开启测试模式</span>
-                            <label class="switch">
-                                <input type="checkbox" id="test-mode-switch" onchange="toggleTestMode()">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div style="margin-bottom:10px;">
-                            <span style="font-size:13px;color:#666;">模拟功率值（W）：</span>
-                            <input type="range" id="test-power-slider" min="0" max="3000" step="100" value="1200" 
-                                   oninput="updateTestPower();syncTestModeSettings()" style="width:150px;margin-left:8px;">
-                            <span id="test-power-value">1200W</span>
-                        </div>
-                        <div style="margin-bottom:10px;">
-                            <span style="font-size:13px;color:#666;">模拟温度（℃）：</span>
-                            <input type="range" id="test-temp-slider" min="-10" max="60" step="1" value="25" 
-                                   oninput="updateTestTemp();syncTestModeSettings()" style="width:150px;margin-left:8px;">
-                            <span id="test-temp-value">25℃</span>
-                        </div>
-                        <div style="margin-bottom:10px;">
-                            <span style="font-size:13px;color:#666;">模拟湿度（%）：</span>
-                            <input type="range" id="test-hum-slider" min="0" max="100" step="1" value="60" 
-                                   oninput="updateTestHumidity();syncTestModeSettings()" style="width:150px;margin-left:8px;">
-                            <span id="test-hum-value">60%</span>
-                        </div>
-                        <div style="font-size:12px;color:#888;">
-                            <div>⚠️ 预警阈值：450W（黄色）</div>
-                            <div>❌ 违规阈值：800W（红色，触发自动断电）</div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div class="card" id="modify-select-card" style="display:none;">
@@ -1031,7 +997,6 @@
             }
             else if (tabName === 'devices') {
                 loadDevices();
-                loadTestModeStatus();
             }
             else if (tabName === 'ai') {
                 document.getElementById('weekly-report-area').style.display = 'none';
@@ -1221,9 +1186,7 @@
                     switchBtn.textContent = d.switch_on ? '关闭插座' : '开启插座';
                     switchBtn.disabled = false;
                 }
-                await loadViolationStatus();
-                await loadAutoOffStatus();
-                await loadApplianceIdentify();
+                await Promise.all([loadViolationStatus(), loadAutoOffStatus()]);
                 // 更新模拟模式数据
                 if (simulationEnabled && currentDevice) {
                     try {
@@ -2079,7 +2042,7 @@
             }
             try {
                 const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 15000 });
                 });
                 userLocation = {
                     lat: position.coords.latitude,
@@ -2302,57 +2265,6 @@
             document.getElementById('report-step-start').style.display = 'block';
         }
 
-        async function loadTestModeStatus() {
-            try {
-                const res = await fetch('/api/test_mode/status');
-                const data = await res.json();
-                if (data.test_mode !== undefined) {
-                    document.getElementById('test-mode-switch').checked = data.test_mode;
-                }
-                if (data.power_w !== undefined) {
-                    document.getElementById('test-power-slider').value = data.power_w;
-                    document.getElementById('test-power-value').textContent = data.power_w + 'W';
-                }
-                if (data.temperature_c !== undefined) {
-                    document.getElementById('test-temp-slider').value = data.temperature_c;
-                    document.getElementById('test-temp-value').textContent = data.temperature_c + '℃';
-                }
-                if (data.humidity_percent !== undefined) {
-                    document.getElementById('test-hum-slider').value = data.humidity_percent;
-                    document.getElementById('test-hum-value').textContent = data.humidity_percent + '%';
-                }
-            } catch (e) {
-                console.error('加载测试模式状态失败:', e);
-            }
-        }
-
-        async function toggleTestMode() {
-            const enabled = document.getElementById('test-mode-switch').checked;
-            const power_w = parseInt(document.getElementById('test-power-slider').value);
-            const temperature_c = parseInt(document.getElementById('test-temp-slider').value);
-            const humidity_percent = parseInt(document.getElementById('test-hum-slider').value);
-            try {
-                const res = await fetch('/api/test_mode', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },       
-                    body: JSON.stringify({ enabled, power_w, temperature_c, humidity_percent })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    await customAlert(data.message);
-                    if (enabled) {
-                        refreshData(true);
-                    }
-                } else {
-                    await customAlert('设置失败: ' + data.error);
-                    document.getElementById('test-mode-switch').checked = !enabled;
-                }
-            } catch (e) {
-                await customAlert('设置失败: ' + e.message);
-                document.getElementById('test-mode-switch').checked = !enabled;
-            }
-        }
-
         // ============ 模拟模式 ============
         let simulationEnabled = false;
 
@@ -2412,7 +2324,7 @@
                 });
                 refreshData();
                 loadSimScenes();
-            } catch (e) {
+            await customAlert(`已切换到场景：${sceneName}`);} catch (e) {
                 console.error('场景切换失败:', e);
             }
         }
@@ -2497,21 +2409,6 @@
                 buzzerText.textContent = buzzerOn ? '鸣响中' : '静音';
                 buzzerText.style.color = buzzerOn ? '#f44336' : '#999';
             }
-        }
-
-        function updateTestPower() {
-            const power_w = document.getElementById('test-power-slider').value;
-            document.getElementById('test-power-value').textContent = power_w + 'W';
-        }
-
-        function updateTestTemp() {
-            const temp = document.getElementById('test-temp-slider').value;
-            document.getElementById('test-temp-value').textContent = temp + '℃';
-        }
-
-        function updateTestHumidity() {
-            const hum = document.getElementById('test-hum-slider').value;  
-            document.getElementById('test-hum-value').textContent = hum + '%';
         }
 
         async function loadDevices() {
@@ -3158,7 +3055,7 @@
                     // 发送测试推送验证
                     fetch('/api/push/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' }).catch(() => {});
                 } else {
-                    customAlert('订阅失败：' + (saveData.message || '未知错误，请检查是否已登录'));
+                    customAlert('订阅失败：' + (saveData.message || '请先登录后再开启推送通知'));
                 }
             } catch (error) {
                 console.error('订阅推送失败:', error);

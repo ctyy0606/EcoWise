@@ -237,6 +237,8 @@ def api_devices():
     """获取当前用户的所有插座实时数据。模拟模式下覆盖在线状态和数据。"""
     try:
         devices = device_client.get_all_devices()
+        for d in devices:
+            print(f"[DEBUG api_devices] device_id={d.get('device_id', '?')}, online={d.get('online')}, owner={d.get('owner')}, power={d.get('power_w')}")
         nickname = _current_nickname()
         filtered = [d for d in devices if d.get('owner') == nickname]
         
@@ -569,66 +571,13 @@ def api_debug_config_dump():
 
 @app.route('/api/debug/all_devices')
 def api_debug_all_devices():
-    """调试API：获取涂鸦云中所有设备和配置的设备（不需要登录）"""
+    """调试端点：返回所有设备原始数据（无owner过滤），用于诊断在线状态问题"""
     try:
-        from device_client import _get_openapi
-        from config import DEVICES, DEVICE_PAIRINGS
-        
-        print(f"[DEBUG API] DEVICES keys at request time: {list(DEVICES.keys())}")
-        print(f"[DEBUG API] DEVICE_PAIRINGS at request time: {DEVICE_PAIRINGS}")
-        
-        api = _get_openapi()
-        
-        cloud_devices = []
-        cloud_error = None
-        try:
-            page_size = 100
-            page_no = 1
-            while True:
-                resp = api.get(f"/v1.0/devices?page_size={page_size}&page_no={page_no}")
-                devices = resp.get("result", [])
-                if not devices:
-                    break
-                
-                for dev in devices:
-                    cloud_devices.append({
-                        "device_id": dev.get("id"),
-                        "name": dev.get("name"),
-                        "product_id": dev.get("product_id"),
-                        "product_name": dev.get("product_name"),
-                        "model": dev.get("model"),
-                        "category": dev.get("category"),
-                        "online": dev.get("online"),
-                        "active_time": dev.get("active_time"),
-                        "uuid": dev.get("uuid"),
-                    })
-                
-                if len(devices) < page_size:
-                    break
-                page_no += 1
-        except Exception as e:
-            cloud_error = str(e)
-        
-        configured_devices = []
-        for device_id, info in DEVICES.items():
-            configured_devices.append({
-                "device_id": device_id,
-                "name": info.get("name", device_id),
-                "owner": info.get("owner", "未知"),
-                "group": info.get("group", "未知"),
-                "is_paired_socket": device_id in DEVICE_PAIRINGS,
-                "paired_with": DEVICE_PAIRINGS.get(device_id, None),
-                "is_paired_board": device_id in DEVICE_PAIRINGS.values(),
-            })
-        
+        devices = device_client.get_all_devices()
         return jsonify({
-            "cloud_devices": cloud_devices,
-            "cloud_count": len(cloud_devices),
-            "cloud_error": cloud_error,
-            "configured_devices": configured_devices,
-            "configured_count": len(configured_devices),
-            "device_pairings": DEVICE_PAIRINGS,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "count": len(devices),
+            "devices": [{k: v for k, v in d.items() if k != '_debug_info'} for d in devices],
+            "debug_info": [{k: d.get(k) for k in ['device_id', 'online', 'switch_on', 'power_w', '_debug_info']} for d in devices]
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1430,74 +1379,6 @@ def api_weekly_report_space_latest():
         return jsonify({"report": report})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-# ============ 测试模式 API ============
-
-@app.route('/api/test_mode', methods=['POST'])
-def api_test_mode():
-    """设置测试模式"""
-    print("[DEBUG] api_test_mode called")
-    try:
-        data = request.get_json()
-        print("[DEBUG] request data:", data)
-        enabled = data.get('enabled', False)
-        power_w = data.get('power_w', 1200)
-        temperature_c = data.get('temperature_c', 25)
-        humidity_percent = data.get('humidity_percent', 60)
-        
-        if not enabled:
-            try:
-                import auto_power_off
-                auto_power_off.clear_events()
-            except Exception as e:
-                print(f"[DEBUG] clear_events failed: {e}")
-            try:
-                import energy_history
-                energy_history.clear_today_records()
-            except Exception as e:
-                print(f"[DEBUG] clear_today_records failed: {e}")
-            if hasattr(config, '_test_start_time'):
-                try:
-                    delattr(config, '_test_start_time')
-                except:
-                    pass
-            print("[DEBUG] 测试模式关闭，已清除自动断电记录和今日采集数据")
-        
-        try:
-            config.TEST_MODE = enabled
-        except Exception as e:
-            print(f"[DEBUG] 设置 TEST_MODE 失败: {e}, 通过 setattr 重试")
-            setattr(config, 'TEST_MODE', enabled)
-        config.TEST_POWER_W = power_w
-        config.TEST_TEMPERATURE_C = temperature_c
-        config.TEST_HUMIDITY_PERCENT = humidity_percent
-        
-        return jsonify({
-            "success": True,
-            "test_mode": config.TEST_MODE,
-            "power_w": config.TEST_POWER_W,
-            "temperature_c": config.TEST_TEMPERATURE_C,
-            "humidity_percent": config.TEST_HUMIDITY_PERCENT,
-            "message": f"测试模式已{'开启' if enabled else '关闭'}"
-        })
-    except Exception as e:
-        print("[DEBUG] api_test_mode error:", str(e))
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/test_mode/status')
-def api_test_mode_status():
-    """获取当前测试模式状态"""
-    print("[DEBUG] api_test_mode_status called")
-    return jsonify({
-        "test_mode": config.TEST_MODE,
-        "power_w": config.TEST_POWER_W,
-        "temperature_c": getattr(config, 'TEST_TEMPERATURE_C', 25),
-        "humidity_percent": getattr(config, 'TEST_HUMIDITY_PERCENT', 60),
-        "violation_threshold": config.VIOLATION_THRESHOLDS.get("violation_watts", 800),
-        "warning_threshold": config.VIOLATION_THRESHOLDS.get("warning_watts", 450),
-    })
 
 
 # ============ 电器指纹识别 API ============

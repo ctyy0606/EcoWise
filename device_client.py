@@ -20,7 +20,7 @@ TOKEN_REFRESH_SECONDS: float = 6600.0
 # 设备数据缓存，按设备ID存储，避免频繁调用涂鸦云 API
 # 格式: { device_id: { "data": {...}, "timestamp": float } }
 _device_cache: Dict[str, Dict] = {}
-CACHE_TTL_SECONDS: float = 0.5
+CACHE_TTL_SECONDS: float = 0.3
 
 
 def _get_openapi() -> TuyaOpenAPI:
@@ -240,6 +240,8 @@ def get_device_data(device_id: str) -> Dict:
         or "开发板" in name
         or "sensor" in name.lower()
     )
+
+    print(f"[device_client] 设备 {device_id} - API调用结果: info_success={info_success}, status_success={status_success}, is_online={is_online}, has_data={bool(result)}, switch_on={switch_on}")
 
     return {
         "device_id": device_id,
