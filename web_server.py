@@ -38,6 +38,20 @@ app.permanent_session_lifetime = timedelta(minutes=30)
 LOGOUT_GRACE_SECONDS = 300
 
 
+# ============ 处理OPTIONS预检请求 ============
+@app.before_request
+def handle_preflight():
+    """处理CORS预检请求"""
+    if request.method == 'OPTIONS':
+        resp = app.make_default_options_response()
+        origin = request.headers.get('Origin', '')
+        if origin:
+            resp.headers['Access-Control-Allow-Origin'] = origin
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        resp.headers['Access-Control-Allow-Credentials'] = 'true'
+        return resp
+
 # ============ 静态文件路由（Service Worker 等根级文件） ============
 @app.route('/sw.js')
 def serve_sw():
@@ -1453,16 +1467,6 @@ except ImportError as e:
     print(f"[备忘录] 注册失败: {e}")
 
 if __name__ == '__main__':
-    # session cookie配置：根据环境自动切换
-    # Render部署时使用HTTPS，需要secure；本地开发使用HTTP，不需要secure
-    import os
-    is_production = os.environ.get("RENDER", "") != "" or os.environ.get("FLASK_ENV", "") == "production"
-    app.config['SESSION_COOKIE_SECURE'] = is_production
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    print(f"[DEBUG] SESSION_COOKIE_SECURE: {app.config['SESSION_COOKIE_SECURE']} (production={is_production})")
-
-
     import os
     CLEAR_DATA_ON_START = os.environ.get("CLEAR_DATA_ON_START", "false").lower() == "true"
 
