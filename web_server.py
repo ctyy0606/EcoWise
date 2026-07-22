@@ -631,6 +631,56 @@ def api_debug_product_dps(product_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/debug/reset_db')
+def api_debug_reset_db():
+    """调试API：删除被锁定的数据库文件并重建（解决 Render 文件系统锁问题）"""
+    try:
+        import os as _os, glob as _glob
+        
+        db_path = user_auth.DB_PATH
+        db_dir = _os.path.dirname(db_path)
+        db_name = _os.path.basename(db_path)
+        
+        # 删除数据库文件及所有相关文件（journal, wal, shm）
+        files_to_delete = [
+            db_path,
+            db_path + "-journal",
+            db_path + "-wal",
+            db_path + "-shm",
+        ]
+        
+        deleted = []
+        errors = []
+        for f in files_to_delete:
+            if _os.path.exists(f):
+                try:
+                    _os.remove(f)
+                    deleted.append(f)
+                except Exception as e:
+                    errors.append(f"{f}: {str(e)}")
+        
+        # 重建数据库
+        try:
+            conn = user_auth._get_db()
+            conn.close()
+            recreate_ok = True
+        except Exception as e:
+            recreate_ok = False
+            errors.append(f"recreate: {str(e)}")
+        
+        return jsonify({
+            "success": len(errors) == 0,
+            "db_path": db_path,
+            "deleted_files": deleted,
+            "errors": errors,
+            "recreated": recreate_ok,
+            "message": "数据库已重置，请重新注册和登录" if len(errors) == 0 else "部分操作失败"
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+
 @app.route('/api/debug/check_db')
 def api_debug_check_db():
     """调试API：检查数据库状态、验证码存储和用户表"""
