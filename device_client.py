@@ -325,6 +325,28 @@ def _get_sensor_data(device_id: str) -> Dict:
         }
 
 
+def debug_device_api(device_id):
+    """调试用：返回涂鸦API原始响应，不进行任何缓存或过滤。"""
+    result = {"device_id": device_id, "info_api": None, "status_api": None, "errors": []}
+    try:
+        api = _get_openapi()
+        info_resp = api.get(f"/v1.0/devices/{device_id}")
+        result["info_api"] = info_resp
+    except Exception as e:
+        err = f"设备信息API异常: {e}"
+        result["errors"].append(err)
+        print(f"[debug_device_api] {err}")
+    try:
+        api = _get_openapi()
+        status_resp = api.get(f"/v1.0/devices/{device_id}/status")
+        result["status_api"] = status_resp
+    except Exception as e:
+        err = f"状态API异常: {e}"
+        result["errors"].append(err)
+        print(f"[debug_device_api] {err}")
+    return result
+
+
 def get_all_devices(include_paired_boards=True) -> list:
     """一次性拉取所有设备数据,单个失败不影响整体。
     已配对的开发板数据会合并到对应的插座中显示。

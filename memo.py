@@ -406,6 +406,28 @@ def parse_memo_from_text(text):
 _memo_thread_started = False
 
 
+def send_test_memo(user_phone):
+    """手动发送测试备忘录推送。"""
+    try:
+        import push_notification
+        success, result = push_notification.send_push_to_user(
+            user_phone,
+            title="EcoWise 备忘录测试",
+            body="这是一条测试备忘录推送消息。如果你收到这条消息，说明推送功能正常！",
+            tag="memo_test",
+            require_interaction=True,
+        )
+        if success:
+            print(f"[备忘录] 测试推送已发送至 {user_phone}")
+            return {"success": True, "message": "测试推送已发送"}
+        else:
+            print(f"[备忘录] 测试推送失败 {user_phone}: {result}")
+            return {"success": False, "message": f"推送失败: {result}"}
+    except Exception as e:
+        print(f"[备忘录] 测试推送异常: {e}")
+        return {"success": False, "message": f"推送异常: {e}"}
+
+
 def _check_memos_loop():
     """后台线程：每分钟检查一次到期备忘录，发送推送通知。"""
     while True:
@@ -479,6 +501,19 @@ def register_memo_routes(app):
             if not memo_date or not memo_time:
                 return jsonify({"success": False, "message": "缺少日期或时间"}), 400
             result = add_memo(user_phone, memo_date, memo_time, content)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    @app.route('/api/memos/test_push', methods=['POST'])
+    def api_test_memo_push():
+        """手动测试备忘录推送。"""
+        from flask import jsonify, session
+        try:
+            user_phone = session.get('phone', '')
+            if not user_phone:
+                return jsonify({"success": False, "message": "未登录"}), 401
+            result = send_test_memo(user_phone)
             return jsonify(result)
         except Exception as e:
             return jsonify({"success": False, "message": str(e)}), 500

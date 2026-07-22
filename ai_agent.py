@@ -487,8 +487,13 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
 
     # ============ 备忘录处理 ============
     # 如果用户消息包含日期+事件，自动解析并设置备忘录
-    memo_keywords = ["备忘录", "记一下", "别忘了", "记得", "明天", "后天", "下周一", "下周二", "下周三", "下周四", "下周五", "下周六", "下周日"]
-    if any(kw in user_message for kw in memo_keywords):
+    # 必须同时包含备忘录意图词 AND 日期+事件模式才触发
+    memo_intent_words = ["备忘录", "记一下", "别忘了", "记得"]
+    date_keywords = ["明天", "后天", "下周一", "下周二", "下周三", "下周四", "下周五", "下周六", "下周日", "今天"]
+    has_memo_intent = any(kw in user_message for kw in memo_intent_words)
+    has_date_event = any(kw in user_message for kw in date_keywords) and any(kw in user_message for kw in ["去", "做", "交", "开会", "打", "上", "买", "见", "写", "复习", "考试", "提醒"])
+    starts_with_date = any(user_message.startswith(kw) for kw in ["明天", "今天", "后天", "下周一", "下周二", "下周三", "下周四", "下周五", "下周六", "下周日"])
+    if has_memo_intent or has_date_event or (starts_with_date and not any(qk in user_message for qk in ["?", "？", "吗", "什么", "怎么", "会不会", "是不是", "有没有", "多少"])):
         # 避免与闹钟重复处理
         if not any(kw in user_message for kw in alarm_keywords):
             try:

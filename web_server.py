@@ -591,6 +591,15 @@ def api_debug_all_devices():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/debug/device/<device_id>')
+@login_required
+def api_debug_device(device_id):
+    """调试用：查看单个设备的涂鸦云API原始响应。"""
+    import device_client
+    result = device_client.debug_device_api(device_id)
+    return jsonify(result)
+
+
 @app.route('/api/debug/product_dps/<product_id>')
 def api_debug_product_dps(product_id):
     """调试API：获取产品的物模型定义（所有DP点）"""

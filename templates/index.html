@@ -976,7 +976,12 @@
             document.getElementById('tab-btn-' + tabName).classList.add('active');
 
             document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-            const targetTab = document.getElementById('tab-' + tabName);
+            const targetTab = document.getElementById('tab-' + tabName);
+            // 模拟模式横幅只显示在设备管理tab
+            const simBar = document.getElementById('simulation-bar');
+            if (simBar) {
+                simBar.style.display = (tabName === 'devices' && simulationEnabled) ? 'block' : 'none';
+            }
             if (targetTab) targetTab.style.display = 'block';
 
             if (tabName === 'realtime') refreshData();
@@ -1195,7 +1200,7 @@
                     try {
                         const simResp = await fetch('/api/simulation/data?device_id=' + currentDevice.device_id);
                         const simData = await simResp.json();
-                        if (simData.simulation) {
+                        if (simData && simData._simulated) {
                             updateLEDBuzzer(simData);
                             document.getElementById('power-value').textContent = simData.power_w || '0.0';
                             document.getElementById('voltage-value').textContent = simData.voltage_v || '0.0';
