@@ -6,11 +6,16 @@ EcoWise 宿舍助理 - 涂鸦云 API 封装
 from typing import Optional, Dict
 from datetime import datetime
 import time
-import os
+import os as _os
 
 # 涂鸦 API 走阿里云代理中转（解决 Render 美国服务器跨区域访问问题）
-os.environ["HTTPS_PROXY"] = "http://101.133.174.240:8888"
-os.environ["HTTP_PROXY"] = "http://101.133.174.240:8888"
+# 仅在 Render 环境设置代理，本地开发不走代理
+if _os.environ.get('RENDER') or _os.environ.get('PROXY_ENABLED'):
+    _os.environ["HTTPS_PROXY"] = "http://101.133.174.240:8888"
+    _os.environ["HTTP_PROXY"] = "http://101.133.174.240:8888"
+    print("[代理] 已启用阿里云代理: http://101.133.174.240:8888")
+else:
+    print("[代理] 本地环境，跳过代理设置")
 
 from tuya_connector import TuyaOpenAPI
 

@@ -4,7 +4,7 @@
  * 支持浏览器推送通知 (Web Push) 和 PWA 离线缓存
  */
 
-const CACHE_NAME = 'ecowise-v3';
+const CACHE_NAME = 'ecowise-v4';
 const CACHE_URLS = [
     '/static/manifest.json',
     '/static/icon-192.png',

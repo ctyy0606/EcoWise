@@ -6,6 +6,7 @@ EcoWise 宿舍助理 - AI 智能体模块
 """
 import requests
 import time
+import json
 from datetime import datetime
 import config
 
@@ -459,14 +460,24 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
     messages.append({"role": "user", "content": user_message})
     data = {"model": config.QWEN_MODEL, "messages": messages}
 
+    print(f"[AI Agent] Calling QWEN API: model={config.QWEN_MODEL}, messages_count={len(messages)}")
+    print(f"[AI Agent] API Key prefix: {config.QWEN_API_KEY[:15]}...")
     resp = requests.post(API_URL, headers=headers, json=data, timeout=30)
+    print(f"[AI Agent] QWEN API response status: {resp.status_code}")
     result = resp.json()
+    print(f"[AI Agent] QWEN API response keys: {list(result.keys()) if isinstance(result, dict) else 'NOT DICT'}")
 
     if "choices" in result and len(result["choices"]) > 0:
         reply = result["choices"][0]["message"]["content"]
+        print(f"[AI Agent] Got reply ({len(reply)} chars)")
     elif "error" in result:
-        return f"AI服务返回错误：{result['error'].get('message', '未知错误')}"
+        error_msg = result.get('error', {})
+        error_code = error_msg.get('code', 'unknown') if isinstance(error_msg, dict) else 'unknown'
+        error_text = error_msg.get('message', str(error_msg)) if isinstance(error_msg, dict) else str(error_msg)
+        print(f"[AI Agent] QWEN API error: code={error_code}, message={error_text}")
+        return f"AI服务返回错误({error_code}): {error_text}"
     else:
+        print(f"[AI Agent] Unexpected QWEN response: {json.dumps(result, ensure_ascii=False)[:500]}")
         return "AI服务返回异常，请稍后再试。"
 
     # ============ 闹钟处理 ============

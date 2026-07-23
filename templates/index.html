@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -539,8 +539,6 @@
             </div>
         </div>
         </div>
-        </div>
-        </div>
 
         <div id="tab-history" class="tab-content" style="display: none;">
             <div class="tabs" id="history-tabs">
@@ -776,8 +774,6 @@
                 <button class="btn" id="push-toggle-btn" style="margin-top:8px;background:#7ba890;" onclick="togglePushSubscription()">🔔 开启推送</button>
                 <button class="btn" style="margin-top:8px;background:#6ba889;" onclick="sendTestPush()">📲 测试推送通知</button>
             </div>
-                </div>
-            </div>
             <div class="card" id="modify-select-card" style="display:none;">
                 <div class="card-title">选择要修改的设备</div>
                 <div id="modify-device-list"></div>
@@ -827,8 +823,9 @@
                     <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelPairDevices()">取消</button>
                 </div>
             </div>
+
             <div id="simulation-panel" style="margin-top:20px;background:white;border-radius:12px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-                <h3 style="color:#2d5a40;margin-bottom:15px;">?? 模拟模式（演示用）</h3>
+                <h3 style="color:#2d5a40;margin-bottom:15px;">模拟模式（演示用）</h3>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
                     <span>模拟模式开关：</span>
                     <button id="sim-toggle-btn" onclick="toggleSimulation()" style="background:#7ba890;color:white;border:none;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:14px;transition:all 0.3s;">开启模拟模式</button>
@@ -844,19 +841,21 @@
                         <div><label style="font-size:12px;">电流(mA)</label><input type="number" id="sim-current" placeholder="680" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:12px;">温度(℃)</label><input type="number" id="sim-temp" placeholder="25" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:12px;">湿度(%)</label><input type="number" id="sim-humidity" placeholder="55" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
-                        <div><label style="font-size:12px;">LED颜色</label><select id="sim-led" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="green">?? 绿色(正常)</option><option value="yellow">?? 黄色(预警)</option><option value="red">?? 红色(告警)</option><option value="off">? 熄灭</option></select></div>
-                        <div><label style="font-size:12px;">蜂鸣器</label><select id="sim-buzzer" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="false">?? 关闭</option><option value="true">?? 鸣响</option></select></div>
+                        <div><label style="font-size:12px;">LED颜色</label><select id="sim-led" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="green">绿色(正常)</option><option value="yellow">黄色(预警)</option><option value="red">红色(告警)</option><option value="off">熄灭</option></select></div>
+                        <div><label style="font-size:12px;">蜂鸣器</label><select id="sim-buzzer" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="false">关闭</option><option value="true">鸣响</option></select></div>
                         <div><label style="font-size:12px;">开关状态</label><select id="sim-switch" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="true">开启</option><option value="false">关闭</option></select></div>
                     </div>
                     <button onclick="applyCustomSimulation()" style="margin-top:10px;background:#7ba890;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">应用自定义数据</button>
                 </div>
             </div>
+
             <div id="simulation-bar" style="display:none;background:linear-gradient(135deg,#ff9a56,#ff6b6b);color:white;padding:8px 16px;text-align:center;font-size:13px;border-radius:0 0 8px 8px;margin:0 10px;">
       🔴 <strong>模拟模式已开启</strong> - 当前场景：<span id="sim-scene-name">自定义</span>
       <button onclick="toggleSimulation()" style="margin-left:10px;background:white;color:#ff6b6b;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">关闭模拟</button>
     </div>
 
-    
+        </div>
+
 
     <script>
 
@@ -971,9 +970,14 @@
         function showTab(tabName) {
             window.scrollTo(0, 0);
             document.querySelectorAll('#main-tabs .tab').forEach(t => t.classList.remove('active'));
-            document.getElementById('tab-btn-' + tabName).classList.add('active');
+            const tabBtn = document.getElementById('tab-btn-' + tabName);
+            if (tabBtn) tabBtn.classList.add('active');
 
             document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            ['pair-device-card', 'delete-device-card', 'modify-device-card', 'modify-select-card', 'add-device-card'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
             const targetTab = document.getElementById('tab-' + tabName);
 
             // 模拟模式横幅只显示在设备管理tab
@@ -985,26 +989,35 @@
                 targetTab.style.display = 'block';
             }
             if (tabName === 'realtime') {
-                document.getElementById('realtime-content').style.display = 'block';
-                document.getElementById('realtime-loading').style.display = 'block';
+                const rc = document.getElementById('realtime-content');
+                const rl = document.getElementById('realtime-loading');
+                if (rc) rc.style.display = 'block';
+                if (rl) rl.style.display = 'block';
             }
 
             if (tabName === 'realtime') refreshData();
             else if (tabName === 'history') {
                 document.querySelectorAll('#history-tabs .tab').forEach(t => t.classList.remove('active'));
-                const todayTab = document.querySelector('#history-tabs .tab');  
+                const todayTab = document.querySelector('#history-tabs .tab');
                 if (todayTab) todayTab.classList.add('active');
-                document.getElementById('history-today').style.display = 'block';
-                document.getElementById('history-month').style.display = 'none';
-                document.getElementById('history-carbon').style.display = 'none';
+                ['history-today', 'history-month', 'history-carbon', 'history-schedule'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+                const ht = document.getElementById('history-today');
+                if (ht) ht.style.display = 'block';
                 loadToday();
             }
             else if (tabName === 'bill') {
                 document.querySelectorAll('#bill-tabs .tab').forEach(t => t.classList.remove('active'));
-                const myTab = document.querySelector('#bill-tabs .tab');        
+                const myTab = document.querySelector('#bill-tabs .tab');
                 if (myTab) myTab.classList.add('active');
-                document.getElementById('bill-my').style.display = 'block';     
-                document.getElementById('bill-space').style.display = 'none';   
+                ['bill-my', 'bill-space'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+                const bm = document.getElementById('bill-my');
+                if (bm) bm.style.display = 'block';
                 hideAllSpaceForms();
                 loadMyBill();
             }
@@ -1036,9 +1049,12 @@
             const activeTab = document.querySelector('#history-tabs .tab[onclick*="' + tabName + '"]');
             if (activeTab) activeTab.classList.add('active');
 
-            document.getElementById('history-today').style.display = tabName === 'today' ? 'block' : 'none';
-            document.getElementById('history-month').style.display = tabName === 'month' ? 'block' : 'none';
-            document.getElementById('history-carbon').style.display = tabName === 'carbon' ? 'block' : 'none';
+            ['history-today', 'history-month', 'history-carbon'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            const target = document.getElementById('history-' + tabName);
+            if (target) target.style.display = 'block';
 
             if (tabName === 'today') loadToday();
             else if (tabName === 'month') loadMonth();
@@ -1131,11 +1147,12 @@
             isRefreshing = true;
             const loadingEl = document.getElementById('realtime-loading');
             const contentEl = document.getElementById('realtime-content');
-            const isFirstLoad = contentEl.style.display === 'none';
+            if (!loadingEl || !contentEl) { isRefreshing = false; return; }
+            const isFirstLoad = !contentEl.style.display || contentEl.style.display === 'none';
             if (isFirstLoad || showLoading) {
-                loadingEl.style.display = 'block';
-                contentEl.style.display = 'none';
-                loadingEl.textContent = '加载中...';
+                if (loadingEl) loadingEl.style.display = 'block';
+                if (contentEl) contentEl.style.display = 'none';
+                if (loadingEl) loadingEl.textContent = '加载中...';
             }
             try {
                 const controller = new AbortController();
@@ -1222,7 +1239,7 @@
                     } catch (e) {}
                     loadViolationStatus();
                 } else {
-                    // 非模拟模式：根据实际功率确定LED颜色
+                    // 非模拟模式：根据实际功率确定LED状态
                     const actualPower = currentDevice ? (currentDevice.power_w || 0) : 0;
                     const isOnline = currentDevice && currentDevice.online;
                     let ledColor = 'off';
@@ -1239,14 +1256,12 @@
                     updateLEDBuzzer({led: ledColor, buzzer: buzzerOn});
                     loadViolationStatus();
                 }
-                loadingEl.style.display = 'none';
-                contentEl.style.display = 'block';
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'block';
             } catch (e) {
-                loadingEl.style.display = 'none';
-                contentEl.style.display = 'block';
-                if (isFirstLoad) {
-                    console.error('加载失败:', e);
-                }
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'block';
+                console.error('refreshData error:', e.message);
             } finally {
                 isRefreshing = false;
             }
@@ -1272,6 +1287,7 @@
                 }
                 const detailEl = document.getElementById('auto-off-detail');
                 const cooldownEl = document.getElementById('auto-off-cooldown');
+                if (!detailEl || !cooldownEl) return;
                 detailEl.innerHTML = '断电时间：' + event.triggered_at + '<br>触发功率：' + event.trigger_power + 'W';
                 if (event.in_cooldown) {
                     cooldownEl.textContent = '冷却期剩余 ' + event.remaining_minutes + ' 分钟，期间无法开启';
@@ -1307,7 +1323,8 @@
                 const isOnline = currentDevice && currentDevice.online;
 
                 if (simulationEnabled && currentDevice) {
-                    const power = parseFloat(document.getElementById('power-value').textContent) || 0;
+                    const powerEl = document.getElementById('power-value');
+            const power = powerEl ? (parseFloat(powerEl.textContent) || 0) : 0;
                     const tempEl = document.getElementById('temperature-value');
                     const humEl = document.getElementById('humidity-value');
                     const temp = tempEl ? parseFloat(tempEl.textContent) : null;
@@ -1587,12 +1604,12 @@
         }
 
         function renderTodayData(data) {
-            document.getElementById('today-total').textContent = parseFloat(data.total_kwh || 0).toFixed(3);
+            var _e = document.getElementById('today-total'); if (_e) _e.textContent = parseFloat(data.total_kwh || 0).toFixed(3);
             const hourly = data.hourly || [];
             const labels = hourly.map(h => h.hour + '时');
             drawChart('today-chart', hourly, labels, 'kwh', '度', true, 5);
-            document.getElementById('today-loading').style.display = 'none';
-            document.getElementById('today-content').style.display = 'block';
+            _e = document.getElementById('today-loading'); if (_e) _e.style.display = 'none';
+            _e = document.getElementById('today-content'); if (_e) _e.style.display = 'block';
         }
 
         async function loadToday() {
@@ -1607,8 +1624,8 @@
             if (cachedToday && cachedViolations) return;
 
             if (!cachedToday) {
-                document.getElementById('today-loading').style.display = 'block';
-                document.getElementById('today-content').style.display = 'none';
+                var _e2 = document.getElementById('today-loading'); if (_e2) _e2.style.display = 'block';
+                _e2 = document.getElementById('today-content'); if (_e2) _e2.style.display = 'none';
             }
             try {
                 if (!cachedToday) {
@@ -1621,12 +1638,13 @@
                     loadTodayViolations();
                 }
             } catch (e) {
-                document.getElementById('today-loading').textContent = '加载失败: ' + e.message;
+                _e2 = document.getElementById('today-loading'); if (_e2) _e2.textContent = '加载失败: ' + e.message;
             }
         }
 
         function renderTodayViolations(data) {
             const el = document.getElementById('today-violations');
+            if (!el) return;
             if (data.count === 0) {
                 el.innerHTML = '<div class="no-data">今日暂无违规记录</div>';
             } else {
@@ -1648,12 +1666,12 @@
         }
 
         function renderMonthData(data) {
-            document.getElementById('month-total').textContent = parseFloat(data.total_kwh || 0).toFixed(3);
+            var _e3 = document.getElementById('month-total'); if (_e3) _e3.textContent = parseFloat(data.total_kwh || 0).toFixed(3);
             const daily = data.daily || [];
             const labels = daily.map(d => d.dateShort + '日');
             drawChart('month-chart', daily, labels, 'kwh', '度', true, 5);
-            document.getElementById('month-loading').style.display = 'none';
-            document.getElementById('month-content').style.display = 'block';
+            _e3 = document.getElementById('month-loading'); if (_e3) _e3.style.display = 'none';
+            _e3 = document.getElementById('month-content'); if (_e3) _e3.style.display = 'block';
         }
 
         async function loadMonth() {
@@ -1668,8 +1686,8 @@
             if (cachedMonth && cachedViolations) return;
 
             if (!cachedMonth) {
-                document.getElementById('month-loading').style.display = 'block';
-                document.getElementById('month-content').style.display = 'none';
+                var _e4 = document.getElementById('month-loading'); if (_e4) _e4.style.display = 'block';
+                _e4 = document.getElementById('month-content'); if (_e4) _e4.style.display = 'none';
             }
             try {
                 if (!cachedMonth) {
@@ -1682,13 +1700,14 @@
                     loadMonthViolations();
                 }
             } catch (e) {
-                document.getElementById('month-loading').textContent = '加载失败: ' + e.message;
+                _e4 = document.getElementById('month-loading'); if (_e4) _e4.textContent = '加载失败: ' + e.message;
             }
         }
 
         function renderMonthViolations(data) {
-            document.getElementById('month-violation-count').textContent = data.total_count || 0;
+            var _ev = document.getElementById('month-violation-count'); if (_ev) _ev.textContent = data.total_count || 0;
             const el = document.getElementById('month-violations');
+            if (!el) return;
             if (data.total_count === 0) {
                 el.innerHTML = '<div class="no-data">本月暂无违规记录</div>';
             } else {
@@ -1699,17 +1718,17 @@
         }
 
         function renderCarbonData(today, week, total) {
-            document.getElementById('carbon-today').textContent = parseFloat(today.carbon_kg || 0).toFixed(3);
-            document.getElementById('carbon-today-kwh').textContent = parseFloat(today.total_kwh || 0).toFixed(3);
-            document.getElementById('carbon-total').textContent = parseFloat(total.carbon_kg || 0).toFixed(3);
-            document.getElementById('carbon-trees').textContent = parseFloat(total.trees_equivalent || 0).toFixed(2);
+            var _ec = document.getElementById('carbon-today'); if (_ec) _ec.textContent = parseFloat(today.carbon_kg || 0).toFixed(3);
+            _ec = document.getElementById('carbon-today-kwh'); if (_ec) _ec.textContent = parseFloat(today.total_kwh || 0).toFixed(3);
+            _ec = document.getElementById('carbon-total'); if (_ec) _ec.textContent = parseFloat(total.carbon_kg || 0).toFixed(3);
+            _ec = document.getElementById('carbon-trees'); if (_ec) _ec.textContent = parseFloat(total.trees_equivalent || 0).toFixed(2);
 
             const daily = week.daily || [];
             const labels = daily.map(d => d.dateShort + '日');
             drawChart('carbon-chart', daily, labels, 'carbon_kg', null, false, 5);
 
-            document.getElementById('carbon-loading').style.display = 'none';
-            document.getElementById('carbon-content').style.display = 'block';
+            _ec = document.getElementById('carbon-loading'); if (_ec) _ec.style.display = 'none';
+            _ec = document.getElementById('carbon-content'); if (_ec) _ec.style.display = 'block';
         }
 
         async function loadCarbon() {
@@ -1718,8 +1737,8 @@
                 renderCarbonData(cached.today, cached.week, cached.total);
                 return;
             }
-            document.getElementById('carbon-loading').style.display = 'block';
-            document.getElementById('carbon-content').style.display = 'none';
+            var _ec2 = document.getElementById('carbon-loading'); if (_ec2) _ec2.style.display = 'block';
+            _ec2 = document.getElementById('carbon-content'); if (_ec2) _ec2.style.display = 'none';
             try {
                 const deviceId = selectedDeviceId || '';
                 const [todayRes, weekRes, totalRes] = await Promise.all([
@@ -1734,7 +1753,7 @@
                 setCache('carbon', { today, week, total });
                 renderCarbonData(today, week, total);
             } catch (e) {
-                document.getElementById('carbon-loading').textContent = '加载失败: ' + e.message;
+                _ec2 = document.getElementById('carbon-loading'); if (_ec2) _ec2.textContent = '加载失败: ' + e.message;
             }
         }
 
@@ -1750,13 +1769,14 @@
         }
 
         async function loadMyBill() {
-            document.getElementById('my-bill-loading').style.display = 'block';
-            document.getElementById('my-bill-content').style.display = 'none';
+            var _eb = document.getElementById('my-bill-loading'); if (_eb) _eb.style.display = 'block';
+            _eb = document.getElementById('my-bill-content'); if (_eb) _eb.style.display = 'none';
             try {
                 const res = await fetch('/api/my_bill');
                 const bill = await res.json();
-                document.getElementById('my-bill-total').textContent = parseFloat(bill.total_amount || 0).toFixed(2);
+                var _ebt = document.getElementById('my-bill-total'); if (_ebt) _ebt.textContent = parseFloat(bill.total_amount || 0).toFixed(2);
                 const tbody = document.getElementById('my-bill-body');
+            if (!tbody) return;
                 if (bill.devices && bill.devices.length > 0) {
                     tbody.innerHTML = bill.devices.map(d =>
                         '<tr><td>' + d.name + '</td><td>' + parseFloat(d.kwh || 0).toFixed(3) + '</td><td>' + parseFloat(d.yuan || 0).toFixed(2) + '</td></tr>'
@@ -1764,10 +1784,10 @@
                 } else {
                     tbody.innerHTML = '<tr><td colspan="3" style="color:#7ba890;">暂无设备数据</td></tr>';
                 }
-                document.getElementById('my-bill-loading').style.display = 'none';
-                document.getElementById('my-bill-content').style.display = 'block';
+                _eb = document.getElementById('my-bill-loading'); if (_eb) _eb.style.display = 'none';
+            _eb = document.getElementById('my-bill-content'); if (_eb) _eb.style.display = 'block';
             } catch (e) {
-                document.getElementById('my-bill-loading').textContent = '加载失败: ' + e.message;
+                _eb = document.getElementById('my-bill-loading'); if (_eb) _eb.textContent = '加载失败: ' + e.message;
             }
         }
 
@@ -1775,8 +1795,8 @@
             document.querySelectorAll('#bill-tabs .tab').forEach(t => t.classList.remove('active'));
             const activeTab = document.querySelector('#bill-tabs .tab[onclick*="' + view + '"]');
             if (activeTab) activeTab.classList.add('active');
-            document.getElementById('bill-my').style.display = view === 'my' ? 'block' : 'none';
-            document.getElementById('bill-space').style.display = view === 'space' ? 'block' : 'none';
+            var _b = document.getElementById('bill-my'); if (_b) _b.style.display = view === 'my' ? 'block' : 'none';
+            _b = document.getElementById('bill-space'); if (_b) _b.style.display = view === 'space' ? 'block' : 'none';
             hideAllSpaceForms();
             if (view === 'my') {
                 loadMyBill();
@@ -1837,9 +1857,9 @@
         }
 
         async function loadSpaceList() {
-            document.getElementById('space-list-loading').style.display = 'block';
-            document.getElementById('space-list-content').style.display = 'none';
-            document.getElementById('space-empty').style.display = 'none';
+            var _es = document.getElementById('space-list-loading'); if (_es) _es.style.display = 'block';
+            _es = document.getElementById('space-list-content'); if (_es) _es.style.display = 'none';
+            _es = document.getElementById('space-empty'); if (_es) _es.style.display = 'none';
             try {
                 const res = await fetch('/api/space/list');
                 const data = await res.json();
@@ -1851,8 +1871,8 @@
                         data.spaces.map(s =>
                             '<option value="' + s.space_id + '"' + (s.space_id === currentSpaceId ? ' selected' : '') + '>' + s.space_name + (s.is_creator ? '（我创建的）' : '') + '</option>'
                         ).join('');
-                    document.getElementById('space-list-loading').style.display = 'none';
-                    document.getElementById('space-list-content').style.display = 'block';
+                    _es = document.getElementById('space-list-loading'); if (_es) _es.style.display = 'none';
+                    _es = document.getElementById('space-list-content'); if (_es) _es.style.display = 'block';
                     if (!currentSpaceId || !data.spaces.find(s => s.space_id === currentSpaceId)) {
                         currentSpaceId = data.spaces[0].space_id;
                         currentSpaceIsCreator = data.spaces[0].is_creator;
@@ -1861,12 +1881,12 @@
                     loadSpaceBill();
                 } else {
                     currentSpaceId = null;
-                    document.getElementById('space-list-loading').style.display = 'none';
-                    document.getElementById('space-empty').style.display = 'block';
-                    document.getElementById('space-list-content').style.display = 'none';
+                    _es = document.getElementById('space-list-loading'); if (_es) _es.style.display = 'none';
+                    _es = document.getElementById('space-empty'); if (_es) _es.style.display = 'block';
+                    _es = document.getElementById('space-list-content'); if (_es) _es.style.display = 'none';
                 }
             } catch (e) {
-                document.getElementById('space-list-loading').textContent = '加载失败';
+                _es = document.getElementById('space-list-loading'); if (_es) _es.textContent = '加载失败';
             }
         }
 
@@ -1877,6 +1897,7 @@
             currentSpaceIsCreator = currentSpaceId ? !!spaceMap[currentSpaceId] : false;
 
             const billArea = document.getElementById('space-bill-area');
+            if (!billArea) return;
             if (!currentSpaceId) {
                 billArea.innerHTML = '';
                 return;
@@ -2160,20 +2181,29 @@
             }
 
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
                 const res = await fetch('/api/ai', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message, history: aiChatHistory })
+                    body: JSON.stringify({ message: message, history: aiChatHistory }),
+                    signal: controller.signal,
+                    credentials: 'include'
                 });
+                clearTimeout(timeoutId);
                 const data = await res.json();
-                const reply = data.reply || '抱歉，无法回答。';
+                const reply = data.reply || 'AI助手暂时无法响应，请稍后再试。可能的原因是网络连接问题或AI服务正在维护。';
                 const bubbles = chat.querySelectorAll('.ai-message.assistant .ai-bubble');
                 bubbles[bubbles.length - 1].textContent = reply;
                 // 保存助手回复到历史
                 aiChatHistory.push({ role: 'assistant', content: reply });
             } catch (e) {
                 const bubbles = chat.querySelectorAll('.ai-message.assistant .ai-bubble');
-                bubbles[bubbles.length - 1].textContent = '网络错误';
+                if (e.name === 'AbortError') {
+                    bubbles[bubbles.length - 1].textContent = 'AI响应超时，请稍后重试';
+                } else {
+                    bubbles[bubbles.length - 1].textContent = '网络异常，请检查连接后重试';
+                }
             }
             chat.scrollTop = chat.scrollHeight;
             setTimeout(() => { if (typeof loadMemos === 'function') loadMemos(); }, 1500);
@@ -2320,10 +2350,10 @@
         }
 
         function hideWeeklyReport() {
-            document.getElementById('weekly-report-area').style.display = 'none';
-            document.getElementById('weekly-report-summary').style.display = 'none';
-            document.getElementById('hide-report-btn').style.display = 'none';
-            document.getElementById('report-step-start').style.display = 'block';
+            var _wr = document.getElementById('weekly-report-area'); if (_wr) _wr.style.display = 'none';
+            _wr = document.getElementById('weekly-report-summary'); if (_wr) _wr.style.display = 'none';
+            _wr = document.getElementById('hide-report-btn'); if (_wr) _wr.style.display = 'none';
+            _wr = document.getElementById('report-step-start'); if (_wr) _wr.style.display = 'block';
         }
 
         // ============ 模拟模式 ============
@@ -2372,7 +2402,7 @@
                         '>' + s.name + '<br><span style="font-size:10px;color:#999;">' + s.description + '</span></button>'
                     ).join('');
                 }
-                document.getElementById('sim-scene-name').textContent = data.current_scene || '自定义';
+                var _esn = document.getElementById('sim-scene-name'); if (_esn) _esn.textContent = data.current_scene || '自定义';
             } catch (e) {}
         }
 
@@ -2499,10 +2529,12 @@
                 if (titleEl && currentUsername) {
                     titleEl.textContent = currentUsername + '的设备';
                 }
-                const res = await fetch('/api/devices');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                const res = await fetch('/api/devices', { signal: controller.signal });
+                clearTimeout(timeoutId);
                 const result = await res.json();
                 const devices = Array.isArray(result) ? result : (result.devices || []);
-                const list = document.getElementById('device-list');
 
                 if (devices.length === 0) {
                     list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无设备</div>';
@@ -2559,10 +2591,7 @@
 
             const btn = document.querySelector('#add-device-card .btn');
             const origText = btn ? btn.textContent : '';
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = '添加中...';
-            }
+            if (btn) { btn.disabled = true; btn.textContent = '添加中...'; }
 
             try {
                 const controller = new AbortController();
@@ -2571,7 +2600,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ device_id: deviceId, name: deviceName, group: deviceGroup }),
-                    signal: controller.signal
+                    signal: controller.signal,
+                    credentials: 'include'
                 });
                 clearTimeout(timeoutId);
                 const data = await res.json();
@@ -2580,16 +2610,20 @@
                     await customAlert('添加成功！设备已生效。');
                     cancelAddDevice();
                     loadDevices();
+                } else if (data.need_login) {
+                    await customAlert('登录已过期，请重新登录');
+                    location.reload();
                 } else {
-                    await customAlert('添加失败: ' + data.message);
+                    await customAlert('添加失败: ' + (data.message || data.error || '未知错误'));
                 }
             } catch (e) {
-                await customAlert('添加超时或网络错误，请重试');
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = origText;
+                if (e.name === 'AbortError') {
+                    await customAlert('请求超时，请重试');
+                } else {
+                    await customAlert('网络错误，请检查连接后重试');
                 }
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = origText; }
             }
         }
 
@@ -2818,15 +2852,11 @@
 
         function showApp(username) {
             currentUsername = username || '';
-            document.getElementById('login-page').style.display = 'none';
-            document.getElementById('main-app').style.display = 'block';
-            // 默认显示实时数据tab
-            var tabRt = document.getElementById('tab-realtime');
-            if (tabRt) tabRt.style.display = 'block';
-            var rtContent = document.getElementById('realtime-content');
-            if (rtContent) rtContent.style.display = 'block';
-            var rtLoading = document.getElementById('realtime-loading');
-            if (rtLoading) rtLoading.style.display = 'block';
+            var _el = document.getElementById('login-page'); if (_el) _el.style.display = 'none';
+            _el = document.getElementById('main-app'); if (_el) _el.style.display = 'block';
+            _el = document.getElementById('tab-realtime'); if (_el) _el.style.display = 'block';
+            _el = document.getElementById('realtime-content'); if (_el) _el.style.display = 'block';
+            _el = document.getElementById('realtime-loading'); if (_el) _el.style.display = 'block';
             refreshData();
             setInterval(refreshData, 5000);
             pollNotifications();
@@ -3083,7 +3113,7 @@
             }
 
             try {
-                swRegistration = await navigator.serviceWorker.register('/sw.js?v=2');
+                swRegistration = await navigator.serviceWorker.register('/sw.js?v=3');
                 console.log('Service Worker 注册成功:', swRegistration.scope);
 
                 // 检查现有订阅
@@ -3320,11 +3350,11 @@
             }
         }, 500);
 
-        // 预加载：后台加载非关键数据
+        // 预加载：后台加载非关键数据（预热缓存）
         setTimeout(() => {
             if (currentUsername) {
-                fetch('/api/energy_history').catch(() => {});
-                fetch('/api/carbon').catch(() => {});
+                fetch('/api/today').catch(() => {});
+                fetch('/api/carbon/today').catch(() => {});
             }
         }, 2000);
         // ===== Start application with debug =====

@@ -754,9 +754,16 @@ def api_ai():
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         user_lat = session.get('user_lat')
         user_lng = session.get('user_lng')
+        print(f"[AI] User={owner}, Phone={phone}, Message={message[:80]}...")
         reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history, user_lat=user_lat, user_lng=user_lng, phone=phone)
+        if not reply or not reply.strip():
+            print(f"[AI] Empty reply received from ai_agent.chat()")
+            return jsonify({"reply": "AI助手暂时无法生成回复，请稍后再试。"})
+        print(f"[AI] Reply ({len(reply)} chars): {reply[:100]}...")
         return jsonify({"reply": reply})
     except Exception as e:
+        import traceback
+        print(f"[AI ERROR] {traceback.format_exc()}")
         return jsonify({"reply": "抱歉，AI 服务暂时不可用: " + str(e)}), 500
 
 
@@ -1094,14 +1101,18 @@ def api_add_device():
 
         config.DEVICES[device_id] = {"name": name, "owner": owner, "group": device_group}
 
-        devices_file = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.dirname(__file__))), "Ecowise", "devices.json")
-        existing = []
-        if os.path.exists(devices_file):
-            with open(devices_file, "r", encoding="utf-8") as f:
-                existing = json.load(f)
-        existing.append({"device_id": device_id, "name": name, "owner": owner, "group": device_group})
-        with open(devices_file, "w", encoding="utf-8") as f:
-            json.dump(existing, f, ensure_ascii=False, indent=2)
+        try:
+            devices_file = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.dirname(__file__))), "Ecowise", "devices.json")
+            os.makedirs(os.path.dirname(devices_file), exist_ok=True)
+            existing = []
+            if os.path.exists(devices_file):
+                with open(devices_file, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+            existing.append({"device_id": device_id, "name": name, "owner": owner, "group": device_group})
+            with open(devices_file, "w", encoding="utf-8") as f:
+                json.dump(existing, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[ADD DEVICE] File save error: {e}")
 
         return jsonify({"success": True, "message": "添加成功"})
     except Exception as e:
