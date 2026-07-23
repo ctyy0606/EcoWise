@@ -352,7 +352,11 @@ def register_simulation_routes(app):
             return jsonify(get_simulation_data(device_id))
 
         # 未指定 device_id 时，为所有已配置的设备返回模拟数据
+        # 如果 device_id 不在 config 中（如 "sim_default"），仍返回模拟数据
         import config
+        if device_id and device_id not in config.DEVICES:
+            # 任意 device_id 都返回模拟数据（用于模拟模式下无真实设备的情况）
+            return jsonify(get_simulation_data(device_id))
         devices = []
         for did in config.DEVICES.keys():
             devices.append(get_simulation_data(did))

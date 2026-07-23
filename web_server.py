@@ -762,6 +762,10 @@ def api_ai():
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         user_lat = session.get('user_lat')
         user_lng = session.get('user_lng')
+        # 如果 session 中没有，尝试从请求体直接读取（更可靠）
+        if user_lat is None or user_lng is None:
+            user_lat = data.get('lat')
+            user_lng = data.get('lng')
         print(f"[AI] User={owner}, Phone={phone}, SessionHasLocation={'YES' if (user_lat and user_lng) else 'NO'}, lat={user_lat}, lng={user_lng}, Message={message[:80]}...")
         reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history, user_lat=user_lat, user_lng=user_lng, phone=phone)
         if not reply or not reply.strip():
@@ -1637,7 +1641,7 @@ def api_debug_auth():
 
 if __name__ == '__main__':
     import os
-    CLEAR_DATA_ON_START = os.environ.get("CLEAR_DATA_ON_START", "false").lower() == "true"
+    CLEAR_DATA_ON_START = False  # 永久关闭自动清除，保护用户数据
 
     if CLEAR_DATA_ON_START:
         import os as _os, json as _json

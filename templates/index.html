@@ -1228,8 +1228,8 @@
                     switchBtn.disabled = false;
                 }
                 loadAutoOffStatus();
-                // 更新模拟模式数据
-                if (simulationEnabled && currentDevice) {
+                // 更新模拟模式数据（去掉 currentDevice 依赖，模拟模式下没有真实设备也能工作）
+                if (simulationEnabled) {
                     try {
                         const simResp = await fetch('/api/simulation/data?device_id=' + currentDevice.device_id);
                         const simData = await simResp.json();
@@ -2193,10 +2193,16 @@
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 30000);
+                // 直接传递位置信息（绕过 session，确保可靠）
+                const reqBody = { message: message, history: aiChatHistory };
+                if (userLocation && userLocation.lat && userLocation.lng) {
+                    reqBody.lat = userLocation.lat;
+                    reqBody.lng = userLocation.lng;
+                }
                 const res = await fetch('/api/ai', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message, history: aiChatHistory }),
+                    headers: { 'Content-Type': 'application/json' },       
+                    body: JSON.stringify(reqBody),
                     signal: controller.signal,
                     credentials: 'include'
                 });
@@ -3273,7 +3279,10 @@
                 return;
             }
             try {
-                const resp = await fetch('/api/push/send_test', { method: 'POST', credentials: 'include' });
+                const controller = new AbortController();
+            const pushTimeoutId = setTimeout(() => controller.abort(), 8000);
+            const resp = await fetch('/api/push/send_test', { method: 'POST', credentials: 'include', signal: controller.signal });
+            clearTimeout(pushTimeoutId);
                 const data = await resp.json();
                 if (data.success) {
                     customAlert('测试推送已发送，请查看系统通知！如果浏览器处于前台，通知可能不会弹出，可以最小化浏览器后再测试。');

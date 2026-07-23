@@ -73,11 +73,12 @@ def _get_db():
 
 
 def _now_str():
-    return datetime.now(CHINA_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    """返回中国时区的当前时间字符串（naive datetime，不含时区信息）"""
+    return datetime.now(CHINA_TZ).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _today_str():
-    return datetime.now(CHINA_TZ).strftime("%Y-%m-%d")
+    return datetime.now(CHINA_TZ).replace(tzinfo=None).strftime("%Y-%m-%d")
 
 
 def add_memo(user_phone, memo_date, memo_time, content):
@@ -95,7 +96,7 @@ def add_memo(user_phone, memo_date, memo_time, content):
     try:
         # 验证日期时间格式
         dt = datetime.strptime(f"{memo_date} {memo_time}", "%Y-%m-%d %H:%M")
-        if dt < datetime.now(CHINA_TZ):
+        if dt < datetime.now(CHINA_TZ).replace(tzinfo=None):
             return {"success": False, "message": "提醒时间不能早于当前时间", "id": None}
 
         conn = _get_db()

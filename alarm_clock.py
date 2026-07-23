@@ -51,7 +51,7 @@ def _get_db():
 
 
 def _now_str():
-    return datetime.now(CHINA_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(CHINA_TZ).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def add_alarm(user_phone, remind_at, message):
@@ -68,7 +68,7 @@ def add_alarm(user_phone, remind_at, message):
     try:
         # 验证时间格式
         dt = datetime.strptime(remind_at, "%Y-%m-%d %H:%M")
-        if dt < datetime.now(CHINA_TZ):
+        if dt < datetime.now(CHINA_TZ).replace(tzinfo=None):
             return {"success": False, "message": "提醒时间不能早于当前时间", "id": None}
 
         conn = _get_db()
