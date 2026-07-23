@@ -28,13 +28,15 @@ QWEN_MODEL = "qwen-turbo"  # 也可用 qwen-plus(更聪明) 或 qwen-max(最强)
 # 注意：开发板设备ID需要使用真实设备ID（vdevo开头的是虚拟设备，配网成功后会变成真实设备）
 DEVICES: Dict[str, dict] = {
     "6c3780ebe5a98ff4a0n5rd": {
-        "name": "插座1(同学A-电脑桌)",
-        "owner": "同学A",
+        "name": "插座1",
+        "owner": ""  # 由用户自行添加设备时设置归属
+,
         "group": "电脑设备",
     },
     "6c2d79c2bc1d87f3de5ako": {
-        "name": "开发板(EcoWise-P1)",
-        "owner": "同学A",
+        "name": "开发板",
+        "owner": ""  # 由用户自行添加设备时设置归属
+,
         "group": "传感器设备",
     },
 }

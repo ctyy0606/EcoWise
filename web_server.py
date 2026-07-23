@@ -1681,6 +1681,14 @@ if __name__ == '__main__':
     print("运行地址: http://localhost:5000")
     print("手机访问: http://你的电脑IP:5000")
     print("="*50)
+    
+    # 启动后台用电数据采集线程（即使关闭网页也持续记录）
+    try:
+        from energy_history import start_background_recorder
+        start_background_recorder()
+    except Exception as e:
+        print(f"[启动] 后台记录线程启动失败: {e}")
+    
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False, threaded=True)
 
 

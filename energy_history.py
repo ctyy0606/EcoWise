@@ -521,6 +521,54 @@ def get_records_by_date_range(device_id: str, start_date: str, end_date: str) ->
         conn.close()
 
 
+# ============ 后台持续记录线程 ============
+import threading
+import time as _time  # 注意：上面已经 import time，这里用别名避免冲突
+
+_background_thread = None
+_background_running = False
+
+
+def _background_recorder_loop():
+    """后台 daemon 线程：每10分钟自动采集一次用电数据。
+    即使用户关闭网页、退出登录，服务仍在运行就会持续记录。
+    """
+    global _background_running
+    print("[后台记录] 用电数据后台采集线程已启动（每10分钟采集一次）")
+    while _background_running:
+        try:
+            print(f"[后台记录] 开始采集...")
+            results = record_all()
+            count = sum(1 for r in results if r.get("ok"))
+            print(f"[后台记录] 采集完成：{count}/{len(results)} 个设备成功")
+        except Exception as e:
+            print(f"[后台记录] 采集出错: {e}")
+        # 休眠10分钟，但每秒检查一次是否需要退出
+        for _ in range(600):
+            if not _background_running:
+                break
+            _time.sleep(1)
+
+
+def start_background_recorder():
+    """启动后台采集线程（web_server 启动时调用）。"""
+    global _background_thread, _background_running
+    if _background_running:
+        print("[后台记录] 已在运行中，跳过")
+        return
+    _background_running = True
+    _background_thread = threading.Thread(target=_background_recorder_loop, daemon=True)
+    _background_thread.start()
+    print("[后台记录] 后台采集线程已启动")
+
+
+def stop_background_recorder():
+    """停止后台采集线程。"""
+    global _background_running
+    _background_running = False
+    print("[后台记录] 后台采集线程已停止")
+
+
 # ============ 命令行入口(可单独跑) ============
 if __name__ == "__main__":
     import sys
