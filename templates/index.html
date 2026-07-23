@@ -485,6 +485,8 @@
         <div class="tab" id="tab-btn-devices" onclick="showTab('devices')">设备管理</div>
     </div>
     
+        <div id="tab-realtime" class="tab-content" style="display: none;">
+            <div id="realtime-loading" class="loading">加载中...</div>
             <div id="realtime-content" style="display: none;">
                 <div id="device-selector-area" style="margin-bottom:10px;">
                     <select id="device-selector" onchange="switchDevice()" style="width:100%;padding:10px;border:2px solid #a4e4ce;border-radius:8px;font-size:14px;outline:none;">
@@ -535,6 +537,9 @@
                 <button class="btn" id="switch-btn" onclick="toggleSwitch()">开启插座</button>
                 <button class="btn" onclick="refreshData(true)" style="margin-top:8px;">刷新数据</button>
             </div>
+        </div>
+        </div>
+        </div>
         </div>
 
         <div id="tab-history" class="tab-content" style="display: none;">
@@ -822,16 +827,8 @@
                     <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelPairDevices()">取消</button>
                 </div>
             </div>
-            <div id="simulation-bar" style="display:none;background:linear-gradient(135deg,#ff9a56,#ff6b6b);color:white;padding:8px 16px;text-align:center;font-size:13px;border-radius:0 0 8px 8px;margin:0 10px;">
-      🔴 <strong>模拟模式已开启</strong> - 当前场景：<span id="sim-scene-name">自定义</span>
-      <button onclick="toggleSimulation()" style="margin-left:10px;background:white;color:#ff6b6b;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">关闭模拟</button>
-    </div>
-
-    <div class="content">
-        <div id="tab-realtime" class="tab-content">
-            <div id="realtime-loading" class="loading">加载中...</div>
             <div id="simulation-panel" style="margin-top:20px;background:white;border-radius:12px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-                <h3 style="color:#2d5a40;margin-bottom:15px;">🎮 模拟模式（演示用）</h3>
+                <h3 style="color:#2d5a40;margin-bottom:15px;">?? 模拟模式（演示用）</h3>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
                     <span>模拟模式开关：</span>
                     <button id="sim-toggle-btn" onclick="toggleSimulation()" style="background:#7ba890;color:white;border:none;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:14px;transition:all 0.3s;">开启模拟模式</button>
@@ -847,19 +844,19 @@
                         <div><label style="font-size:12px;">电流(mA)</label><input type="number" id="sim-current" placeholder="680" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:12px;">温度(℃)</label><input type="number" id="sim-temp" placeholder="25" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
                         <div><label style="font-size:12px;">湿度(%)</label><input type="number" id="sim-humidity" placeholder="55" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
-                        <div><label style="font-size:12px;">LED颜色</label><select id="sim-led" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="green">🟢 绿色(正常)</option><option value="yellow">🟡 黄色(预警)</option><option value="red">🔴 红色(告警)</option><option value="off">⚫ 熄灭</option></select></div>
-                        <div><label style="font-size:12px;">蜂鸣器</label><select id="sim-buzzer" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="false">🔇 关闭</option><option value="true">🔊 鸣响</option></select></div>
+                        <div><label style="font-size:12px;">LED颜色</label><select id="sim-led" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="green">?? 绿色(正常)</option><option value="yellow">?? 黄色(预警)</option><option value="red">?? 红色(告警)</option><option value="off">? 熄灭</option></select></div>
+                        <div><label style="font-size:12px;">蜂鸣器</label><select id="sim-buzzer" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="false">?? 关闭</option><option value="true">?? 鸣响</option></select></div>
                         <div><label style="font-size:12px;">开关状态</label><select id="sim-switch" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="true">开启</option><option value="false">关闭</option></select></div>
                     </div>
                     <button onclick="applyCustomSimulation()" style="margin-top:10px;background:#7ba890;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">应用自定义数据</button>
                 </div>
             </div>
-
-
-        </div>
-
+            <div id="simulation-bar" style="display:none;background:linear-gradient(135deg,#ff9a56,#ff6b6b);color:white;padding:8px 16px;text-align:center;font-size:13px;border-radius:0 0 8px 8px;margin:0 10px;">
+      🔴 <strong>模拟模式已开启</strong> - 当前场景：<span id="sim-scene-name">自定义</span>
+      <button onclick="toggleSimulation()" style="margin-left:10px;background:white;color:#ff6b6b;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">关闭模拟</button>
     </div>
-</div>
+
+    
 
     <script>
 
@@ -984,7 +981,13 @@
             if (simBar) {
                 simBar.style.display = (tabName === 'devices' && simulationEnabled) ? 'block' : 'none';
             }
-            if (targetTab) targetTab.style.display = 'block';
+            if (targetTab) {
+                targetTab.style.display = 'block';
+            }
+            if (tabName === 'realtime') {
+                document.getElementById('realtime-content').style.display = 'block';
+                document.getElementById('realtime-loading').style.display = 'block';
+            }
 
             if (tabName === 'realtime') refreshData();
             else if (tabName === 'history') {
@@ -1219,8 +1222,22 @@
                     } catch (e) {}
                     loadViolationStatus();
                 } else {
-                    updateLEDBuzzer({led: 'off', buzzer: false});
-                        loadViolationStatus();
+                    // 非模拟模式：根据实际功率确定LED颜色
+                    const actualPower = currentDevice ? (currentDevice.power_w || 0) : 0;
+                    const isOnline = currentDevice && currentDevice.online;
+                    let ledColor = 'off';
+                    if (!isOnline) {
+                        ledColor = 'off';
+                    } else if (actualPower > 800) {
+                        ledColor = 'red';
+                    } else if (actualPower > 450) {
+                        ledColor = 'yellow';
+                    } else {
+                        ledColor = 'off';
+                    }
+                    const buzzerOn = actualPower > 800;
+                    updateLEDBuzzer({led: ledColor, buzzer: buzzerOn});
+                    loadViolationStatus();
                 }
                 loadingEl.style.display = 'none';
                 contentEl.style.display = 'block';
@@ -2474,6 +2491,9 @@
         }
 
         async function loadDevices() {
+            const list = document.getElementById('device-list');
+            if (!list) return;
+            list.innerHTML = '<div class="loading">加载中...</div>';
             try {
                 const titleEl = document.getElementById('device-list-title');
                 if (titleEl && currentUsername) {
@@ -2505,9 +2525,9 @@
                         '</div>';
                 }).join('');
             } catch (e) {
-            document.getElementById('device-list').innerHTML = '<div class="loading">加载失败</div>';
+                list.innerHTML = '<div class="loading" style="color:#c45a5a;">加载失败，下拉刷新重试</div>';
+            }
         }
-    }
 
     function showAddDeviceForm() {
             document.getElementById('device-actions').style.display = 'none';
@@ -2537,12 +2557,23 @@
 
             if (!await customConfirm('确认添加设备「' + deviceName + '」吗？')) return;
 
+            const btn = document.querySelector('#add-device-card .btn');
+            const origText = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '添加中...';
+            }
+
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
                 const res = await fetch('/api/devices/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: deviceId, name: deviceName, group: deviceGroup })
+                    body: JSON.stringify({ device_id: deviceId, name: deviceName, group: deviceGroup }),
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 const data = await res.json();
 
                 if (data.success) {
@@ -2553,7 +2584,12 @@
                     await customAlert('添加失败: ' + data.message);
                 }
             } catch (e) {
-                await customAlert('网络错误');
+                await customAlert('添加超时或网络错误，请重试');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = origText;
+                }
             }
         }
 
@@ -2784,6 +2820,13 @@
             currentUsername = username || '';
             document.getElementById('login-page').style.display = 'none';
             document.getElementById('main-app').style.display = 'block';
+            // 默认显示实时数据tab
+            var tabRt = document.getElementById('tab-realtime');
+            if (tabRt) tabRt.style.display = 'block';
+            var rtContent = document.getElementById('realtime-content');
+            if (rtContent) rtContent.style.display = 'block';
+            var rtLoading = document.getElementById('realtime-loading');
+            if (rtLoading) rtLoading.style.display = 'block';
             refreshData();
             setInterval(refreshData, 5000);
             pollNotifications();
