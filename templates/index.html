@@ -2198,6 +2198,9 @@
                 if (userLocation && userLocation.lat && userLocation.lng) {
                     reqBody.lat = userLocation.lat;
                     reqBody.lng = userLocation.lng;
+                    console.log('[AI] 附带位置信息:', userLocation.lat.toFixed(4), userLocation.lng.toFixed(4));
+                } else {
+                    console.log('[AI] 未附带位置信息，userLocation=', userLocation);
                 }
                 const res = await fetch('/api/ai', {
                     method: 'POST',
@@ -3132,9 +3135,26 @@
                 swRegistration = await navigator.serviceWorker.register('/sw.js?v=3');
                 console.log('Service Worker 注册成功:', swRegistration.scope);
 
-                // 检查现有订阅
+                // 检查现有订阅，并验证服务器端是否也存在
                 currentPushSubscription = await swRegistration.pushManager.getSubscription();
-                updatePushButton(currentPushSubscription ? 'subscribed' : 'unsubscribed');
+                if (currentPushSubscription) {
+                    // 浏览器有订阅，验证服务器是否也有（防止数据库被清除后不同步）
+                    try {
+                        const checkResp = await fetch('/api/push/status', { credentials: 'include' });
+                        const checkData = await checkResp.json();
+                        if (checkData.success && checkData.status && checkData.status.subscriptions_count > 0) {
+                            updatePushButton('subscribed');
+                        } else {
+                            // 服务器没有订阅记录，重置按钮
+                            console.log('服务器无订阅记录，显示"开启推送"');
+                            updatePushButton('unsubscribed');
+                        }
+                    } catch(e) {
+                        updatePushButton(currentPushSubscription ? 'subscribed' : 'unsubscribed');
+                    }
+                } else {
+                    updatePushButton('unsubscribed');
+                }
                 return true;
             } catch (error) {
                 console.error('Service Worker 注册失败:', error);
@@ -3275,19 +3295,23 @@
             }
             
             if (!currentPushSubscription) {
-                customAlert('尚未开启推送通知。请先点击"🔔 开启推送"按钮，在弹出的权限请求中选择"允许"，按钮变为"已开启"后再测试。');
+                customAlert('尚未开启推送通知。\n\n如果之前已显示"已开启"但现在需要重新订阅，说明服务器数据已被重置（例如服务器重启），请重新点击"🔔 开启推送"按钮。');
                 return;
             }
             try {
                 const controller = new AbortController();
-            const pushTimeoutId = setTimeout(() => controller.abort(), 8000);
-            const resp = await fetch('/api/push/send_test', { method: 'POST', credentials: 'include', signal: controller.signal });
-            clearTimeout(pushTimeoutId);
+                const pushTimeoutId = setTimeout(() => controller.abort(), 8000);
+                const resp = await fetch('/api/push/send_test', { method: 'POST', credentials: 'include', signal: controller.signal });
+                clearTimeout(pushTimeoutId);
                 const data = await resp.json();
                 if (data.success) {
                     customAlert('测试推送已发送，请查看系统通知！如果浏览器处于前台，通知可能不会弹出，可以最小化浏览器后再测试。');
                 } else {
-                    customAlert('发送失败：' + (data.message || JSON.stringify(data.result)));
+                    let errMsg = data.message || JSON.stringify(data.result);
+                    if (errMsg.includes('没有订阅') || errMsg.includes('未订阅')) {
+                        errMsg = '服务器中未找到您的推送订阅记录（可能是服务器重启导致数据被清除）。请重新点击"🔔 开启推送"按钮完成订阅。';
+                    }
+                    customAlert('发送失败：' + errMsg);
                 }
             } catch (error) {
                 customAlert('发送失败：' + error.message);
