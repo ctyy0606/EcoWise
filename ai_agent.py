@@ -527,7 +527,7 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
     messages.append({"role": "user", "content": user_message})
     data = {"model": config.QWEN_MODEL, "messages": messages}
 
-    resp = requests.post(API_URL, headers=headers, json=data, timeout=30)
+    resp = requests.post(API_URL, headers=headers, json=data, timeout=45)
     result = resp.json()
 
     if "choices" in result and len(result["choices"]) > 0:

@@ -2194,7 +2194,7 @@
 
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                const timeoutId = setTimeout(() => controller.abort(), 60000);
                 // 直接传递位置信息（绕过 session，确保可靠）
                 const reqBody = { message: message, history: aiChatHistory };
                 if (userLocation && userLocation.lat && userLocation.lng) {
@@ -2551,7 +2551,7 @@
                     titleEl.textContent = currentUsername + '的设备';
                 }
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                const timeoutId = setTimeout(() => controller.abort(), 60000);
                 const res = await fetch('/api/devices', { signal: controller.signal });
                 clearTimeout(timeoutId);
                 const result = await res.json();

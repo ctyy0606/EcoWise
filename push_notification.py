@@ -26,10 +26,10 @@ except ImportError as e:
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
 
-DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "energy_log.db")
 
-# VAPID keys 文件路径（使用 TEMP 目录，避免 Render 上权限问题）
-_TEMP_DIR = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise")
+# VAPID keys 文件路径（使用项目 data 目录）
+_TEMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 PUBLIC_KEY_FILE = os.path.join(_TEMP_DIR, "vapid_public_key.txt")
 PRIVATE_KEY_FILE = os.path.join(_TEMP_DIR, "vapid_private_key.txt")
 

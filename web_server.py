@@ -43,6 +43,9 @@ app.secret_key = "ecowise_dorm_secret_2026"
 # session 持久化时长：30分钟无操作自动过期
 app.permanent_session_lifetime = timedelta(minutes=30)
 
+# 永久关闭自动清除数据（生产环境）
+CLEAR_DATA_ON_START = False
+
 # 信任代理服务器（Cloudflare/Render）转发的HTTPS协议头
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 

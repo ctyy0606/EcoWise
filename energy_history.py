@@ -27,7 +27,7 @@ from device_client import get_device_data
 
 
 # ============ 数据库初始化 ============
-DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "energy_log.db")
 
 
 def _get_db() -> sqlite3.Connection:
