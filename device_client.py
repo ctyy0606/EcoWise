@@ -19,10 +19,25 @@ else:
 
 from tuya_connector import TuyaOpenAPI
 
+import requests.adapters
+
+# ===== Tuya API 超时保护 =====
+# 为每个 API 请求设置 5 秒超时，防止设备离线时页面卡死
+class _TimeoutAdapter(requests.adapters.HTTPAdapter):
+    """为 requests Session 添加默认超时的适配器"""
+    def __init__(self, *args, **kwargs):
+        self._default_timeout = kwargs.pop('default_timeout', 5)
+        super().__init__(*args, **kwargs)
+    
+    def send(self, request, **kwargs):
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = self._default_timeout
+        return super().send(request, **kwargs)
+
 import config
 
 # 为 Tuya API 请求设置超时（秒），防止在非测试模式下挂起
-_TUYA_TIMEOUT = 8  # 秒
+_TUYA_TIMEOUT = 5  # 秒
 
 
 _openapi: Optional[TuyaOpenAPI] = None
@@ -33,7 +48,7 @@ TOKEN_REFRESH_SECONDS: float = 6600.0
 # 设备数据缓存，按设备ID存储，避免频繁调用涂鸦云 API
 # 格式: { device_id: { "data": {...}, "timestamp": float } }
 _device_cache: Dict[str, Dict] = {}
-CACHE_TTL_SECONDS: float = 0.3
+CACHE_TTL_SECONDS: float = 3.0  # 3秒缓存，减少API调用
 
 
 def _get_openapi() -> TuyaOpenAPI:
@@ -47,6 +62,10 @@ def _get_openapi() -> TuyaOpenAPI:
                 config.ACCESS_ID,
                 config.ACCESS_SECRET,
             )
+            # 挂载超时适配器，每个 API 请求最多等 5 秒
+            _adapter = _TimeoutAdapter(default_timeout=_TUYA_TIMEOUT)
+            _openapi.session.mount('https://', _adapter)
+            _openapi.session.mount('http://', _adapter)
             connect_resp = _openapi.connect()
             if not connect_resp.get("success", False):
                 err_msg = connect_resp.get("msg", "未知错误")
