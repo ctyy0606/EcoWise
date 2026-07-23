@@ -1269,7 +1269,9 @@
             } catch (e) {
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (contentEl) contentEl.style.display = 'block';
-                console.error('refreshData error:', e.message);
+                if (e.name !== 'AbortError') {
+                    console.error('refreshData error:', e.message);
+                }
             } finally {
                 isRefreshing = false;
                 refreshAbortController = null;
@@ -2549,7 +2551,7 @@
                     titleEl.textContent = currentUsername + '的设备';
                 }
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
                 const res = await fetch('/api/devices', { signal: controller.signal });
                 clearTimeout(timeoutId);
                 const result = await res.json();
@@ -2576,7 +2578,11 @@
                         '</div>';
                 }).join('');
             } catch (e) {
-                list.innerHTML = '<div class="loading" style="color:#c45a5a;">加载失败，下拉刷新重试</div>';
+                if (e.name === 'AbortError') {
+                    list.innerHTML = '<div class="loading" style="color:#c45a5a;">设备加载超时（涂鸦云API响应慢），请下拉刷新重试</div>';
+                } else {
+                    list.innerHTML = '<div class="loading" style="color:#c45a5a;">加载失败：' + (e.message || '网络错误') + '</div>';
+                }
             }
         }
 
@@ -3132,8 +3138,28 @@
             }
 
             try {
-                swRegistration = await navigator.serviceWorker.register('/sw.js?v=3');
-                console.log('Service Worker 注册成功:', swRegistration.scope);
+                // 先清除所有旧版 SW，确保新版本生效
+                const oldRegs = await navigator.serviceWorker.getRegistrations();
+                for (const reg of oldRegs) {
+                    await reg.unregister();
+                    console.log('已清理旧 SW:', reg.scope);
+                }
+                // 等待浏览器完成清理
+                await new Promise(r => setTimeout(r, 300));
+                swRegistration = await navigator.serviceWorker.register('/sw.js?v=5', { updateViaCache: 'none' });
+                console.log('Service Worker 注册成功 (v5):', swRegistration.scope);
+                // 检测 SW 更新
+                swRegistration.addEventListener('updatefound', () => {
+                    console.log('检测到新 SW 版本，正在安装...');
+                    const newWorker = swRegistration.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                console.log('SW 已激活新版本');
+                            }
+                        });
+                    }
+                });
 
                 // 检查现有订阅，并验证服务器端是否也存在
                 currentPushSubscription = await swRegistration.pushManager.getSubscription();

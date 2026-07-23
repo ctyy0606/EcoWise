@@ -51,7 +51,7 @@ _last_connect_fail_time: float = 0.0
 # 设备数据缓存，按设备ID存储，避免频繁调用涂鸦云 API
 # 格式: { device_id: { "data": {...}, "timestamp": float } }
 _device_cache: Dict[str, Dict] = {}
-CACHE_TTL_SECONDS: float = 3.0  # 3秒缓存，减少API调用
+CACHE_TTL_SECONDS: float = 15.0  # 15秒缓存，减少API调用，提升页面加载速度
 
 
 def _get_openapi() -> TuyaOpenAPI:
