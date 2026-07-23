@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import config
 from energy_history import get_today_energy, get_month_energy
 
-DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "energy_log.db")
 
 
 def _kwh_to_carbon(kwh):

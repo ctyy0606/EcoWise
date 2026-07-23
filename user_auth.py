@@ -13,7 +13,7 @@ import re
 import time
 from datetime import datetime
 
-DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "energy_log.db")
 
 CODE_EXPIRE_SECONDS = 300  # 验证码5分钟有效
 

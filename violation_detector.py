@@ -21,7 +21,7 @@ import config
 # 违规事件持续阈值（分钟）：持续高功率超过此时间才算一次违规
 VIOLATION_DURATION_MINUTES = 5
 
-DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "energy_log.db")
 
 
 def _get_db():

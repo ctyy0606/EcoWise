@@ -23,7 +23,7 @@ except ImportError:
     import pytz
     CHINA_TZ = pytz.timezone("Asia/Shanghai")
 
-DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "energy_log.db")
 
 
 # ============ 1. 数据库操作 ============
