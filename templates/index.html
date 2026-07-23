@@ -1,0 +1,3416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2d5a40">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💡</text></svg>">
+    <title>EcoWise 宿舍助理</title>
+    <script async src="/static/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f8f5; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #a4e4ce 0%, #8ccaaf 100%); color: #2d5a40; padding: 20px; text-align: center; }
+        .header h1 { font-size: 24px; }
+        .header p { font-size: 12px; opacity: 0.8; }
+        .tabs { display: flex; background: white; padding: 5px; margin: 10px; border-radius: 10px; box-shadow: 0 2px 8px rgba(164, 228, 206, 0.3); }
+        .tab { flex: 1; text-align: center; padding: 8px 5px; border-radius: 8px; font-size: 12px; color: #7ba890; cursor: pointer; transition: all 0.3s; }
+        .tab.active { background: #a4e4ce; color: #2d5a40; font-weight: bold; }
+        .content { padding: 10px; padding-bottom: 60px; }
+        .card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(164, 228, 206, 0.2); }
+        .card-title { font-size: 16px; color: #2d5a40; margin-bottom: 10px; font-weight: bold; }
+        .power-display { background: linear-gradient(135deg, #a4e4ce 0%, #8ccaaf 100%); border-radius: 10px; padding: 20px; text-align: center; color: white; margin-bottom: 10px; }
+        .power-value { font-size: 48px; font-weight: bold; }
+        .power-unit { font-size: 16px; opacity: 0.9; }
+        .data-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .data-item { background: #f5faf8; border-radius: 8px; padding: 10px; text-align: center; }
+        .data-label { font-size: 12px; color: #7ba890; }
+        .data-value { font-size: 18px; color: #2d5a40; font-weight: bold; }
+        .btn { background: #a4e4ce; color: #2d5a40; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; }
+        .btn-danger { background: #ff9e9e; color: #8b0000; }
+        .loading { text-align: center; color: #7ba890; padding: 20px; }
+        .chart-container { height: 250px; background: #fafafa; border-radius: 8px; position: relative; overflow-x: auto; overflow-y: hidden; margin: 10px 0; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+        .chart-container canvas { display: block; height: 250px; }
+        .record-list { max-height: 200px; overflow-y: auto; }
+        .record-item { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .bill-table { width: 100%; border-collapse: collapse; }
+        .bill-table th { background: #f5faf8; padding: 8px; text-align: center; font-size: 12px; color: #7ba890; }
+        .bill-table td { padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 13px; text-align: center; }
+        .ai-chat-box { height: 50vh; min-height: 280px; overflow-y: auto; background: #fafafa; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+        .ai-message { display: flex; margin-bottom: 8px; }
+        .ai-message.user { justify-content: flex-end; }
+        .ai-message.assistant { justify-content: flex-start; }
+        .ai-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+        .ai-bubble.user { background: #a4e4ce; color: #2d5a40; }
+        .ai-bubble.assistant { background: white; color: #333; border: 1px solid #e0e0e0; }
+        .ai-input { display: flex; gap: 8px; }
+        .ai-input input { flex: 1; padding: 10px; border: 2px solid #a4e4ce; border-radius: 8px; font-size: 14px; outline: none; }
+        .ai-input button { background: #a4e4ce; color: #2d5a40; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; }
+        .device-card { background: #f5faf8; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+        .device-info h4 { color: #2d5a40; font-size: 14px; }
+        .device-info p { color: #7ba890; font-size: 12px; }
+        .device-status { font-size: 12px; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+        .device-status.online { background: #a4e4ce; color: #2d5a40; }
+        .device-status.offline { background: #ffd5d5; color: #8b0000; }
+        .device-id-text { color: #b8a860; font-size: 11px; margin-left: 8px; }
+        .add-device-form input { width: 100%; padding: 10px; margin-bottom: 8px; border: 2px solid #a4e4ce; border-radius: 8px; font-size: 14px; outline: none; }
+        .violation-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; border-radius: 0 8px 8px 0; color: #856404; margin-top: 10px; }
+        .violation-danger { background: #f8d7da; border-left: 4px solid #dc3545; padding: 10px; border-radius: 0 8px 8px 0; color: #721c24; margin-top: 10px; }
+        .violation-normal { background: #d4edda; border-left: 4px solid #28a745; padding: 10px; border-radius: 0 8px 8px 0; color: #155724; margin-top: 10px; }
+        .help-icon { display: inline-block; width: 14px; height: 14px; background: transparent; color: #7ba890; border-radius: 50%; text-align: center; font-size: 11px; line-height: 14px; cursor: pointer; border: 1px solid #a4e4ce; vertical-align: middle; margin-right: 4px; }
+        .help-icon:hover { background: #e8f5f0; }
+        .help-tooltip { display: none; position: fixed; background: white; border: 1px solid #a4e4ce; border-radius: 8px; padding: 12px; max-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 300; font-size: 13px; line-height: 1.5; color: #333; }
+        .help-tooltip.show { display: block; }
+        .custom-modal { background: white; border-radius: 12px; padding: 20px; width: 80%; max-width: 300px; text-align: center; }
+        .custom-modal p { margin: 0 0 16px 0; font-size: 15px; color: #333; line-height: 1.5; }
+        .header { position: relative; }
+        .user-info { position: absolute; top: 15px; right: 15px; font-size: 12px; opacity: 0.9; }
+        .user-info a { color: inherit; text-decoration: none; margin-left: 8px; }
+        .login-page { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; background: linear-gradient(135deg, #a4e4ce 0%, #8ccaaf 100%); padding: 60px 20px 20px; }
+        .login-title { text-align: center; color: white; margin-bottom: 30px; }
+        .login-title .line1 { font-size: 18px; opacity: 0.9; font-weight: normal; }
+        .login-title .line2 { font-size: 26px; font-weight: bold; margin-top: 4px; text-shadow: 0 2px 8px rgba(45,90,64,0.3); }
+        .login-card { background: white; border-radius: 16px; padding: 30px 25px; width: 85%; max-width: 320px; box-shadow: 0 8px 32px rgba(45,90,64,0.2); }
+        .login-card input { width: 100%; padding: 12px; margin-bottom: 10px; border: 2px solid #a4e4ce; border-radius: 8px; font-size: 14px; outline: none; box-sizing: border-box; }
+        .login-intro { text-align: center; color: white; font-size: 12px; opacity: 0.85; margin-top: 16px; max-width: 320px; line-height: 1.6; }
+        .logout-btn { display: inline-block; padding: 4px 12px; border: 1.5px solid rgba(255,255,255,0.8); border-radius: 14px; color: #fff !important; background: #2d5a40; text-decoration: none; font-size: 12px; margin-left: 8px; transition: all 0.2s; }
+        .logout-btn:hover { background: #1a3d28; }
+        .invitation-card { border-left: 4px solid #ffc107; }
+        .invitation-title { font-size: 14px; color: #2d5a40; font-weight: bold; }
+        .invitation-desc { font-size: 13px; margin-top: 6px; color: #555; }
+
+        @media (prefers-color-scheme: dark) {
+            body { background: #1a1f1d; }
+            .header { background: linear-gradient(135deg, #4a9d7a 0%, #3d8665 100%); color: #a4e4ce; }
+            .tabs { background: #252b28; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+            .tab { color: #6ba889; }
+            .tab.active { background: #3d8665; color: #a4e4ce; }
+            .card { background: #252b28; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+            .card-title { color: #a4e4ce; }
+            .power-display { background: linear-gradient(135deg, #4a9d7a 0%, #3d8665 100%); }
+            .data-item { background: #2a312e; }
+            .data-label { color: #6ba889; }
+            .data-value { color: #a4e4ce; }
+            .btn { background: #3d8665; color: #a4e4ce; }
+            .btn-danger { background: #c46a6a; color: #ffd5d5; }
+            .loading { color: #6ba889; }
+            .chart-container { background: #2a312e; }
+            .bill-table th { background: #2a312e; color: #6ba889; }
+            .bill-table td { border-bottom: 1px solid #3a4239; color: #e0e8e4; }
+            .ai-chat-box { background: #2a312e; }
+            .ai-bubble.user { background: #3d8665; color: #a4e4ce; }
+            .ai-bubble.assistant { background: #252b28; color: #e0e8e4; border: 1px solid #3a4239; }
+            .ai-input input { background: #2a312e; border: 2px solid #3d8665; color: #e0e8e4; }
+            .ai-input button { background: #3d8665; color: #a4e4ce; }
+            .device-card { background: #2a312e; border: 1px solid #3d8665; }
+            .device-info h4 { color: #a4e4ce; }
+            .device-info p { color: #6ba889; }
+            .device-status.online { background: #3d8665; color: #a4e4ce; }
+            .device-status.offline { background: #5a3a3a; color: #ff9e9e; }
+            .device-id-text { color: #ddd5b0; }
+            .add-device-form input { background: #2a312e; border: 2px solid #3d8665; color: #e0e8e4; }
+            .violation-normal { background: #2a3a30; border-left: 4px solid #4a9d7a; color: #a4e4ce; }
+            .violation-warning { background: #3a3520; border-left: 4px solid #c4a020; color: #ffd5a0; }
+            .violation-danger { background: #3a2525; border-left: 4px solid #c45a5a; color: #ffa0a0; }
+            .custom-modal { background: #252b28; }
+            .custom-modal p { color: #e0e8e4; }
+            .record-item { border-bottom: 1px solid #3a4239; color: #e0e8e4; }
+            select { background: #252b28; color: #e0e8e4; }
+            select option { background: #252b28; color: #e0e8e4; }
+            .login-page { background: linear-gradient(135deg, #3d8665 0%, #2d5a40 100%); }
+            .login-title { color: #fff; }
+            .login-title .line2 { text-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+            .login-card { background: #252b28; }
+            .login-card input { background: #2a312e; border: 2px solid #3d8665; color: #e0e8e4; }
+            .login-intro { color: #e0e8e4; opacity: 0.8; }
+            .logout-btn { border: 1.5px solid rgba(255,255,255,0.5); background: #2d5a40; color: #fff !important; }
+            .logout-btn:hover { background: #1a3d28; }
+            .invitation-title { color: #a4e4ce; }
+            .invitation-desc { color: #c0c8c4; }
+            #notif-panel { background: #252b28; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+            #notif-panel strong { color: #a4e4ce; }
+            .notif-item { border-bottom-color: #3a4239 !important; }
+            .notif-item .notif-title { color: #a4e4ce; }
+            .notif-item .notif-msg { color: #c0c8c4; }
+            .notif-item .notif-time { color: #6ba889; }
+        }
+
+        @media (max-width: 480px) {
+            body { font-size: 15px; }
+            .header { padding: 16px 12px; }
+            .header h1 { font-size: 20px; }
+            .header p { font-size: 11px; }
+            .tabs { margin: 8px; padding: 4px; }
+            .tab { padding: 10px 4px; font-size: 13px; }
+            .content { padding: 8px; padding-bottom: 70px; }
+            .card { padding: 12px; margin-bottom: 8px; }
+            .card-title { font-size: 15px; margin-bottom: 8px; }
+            .power-display { padding: 16px; }
+            .power-value { font-size: 40px; }
+            .power-unit { font-size: 14px; }
+            .data-grid { gap: 6px; }
+            .data-item { padding: 8px; }
+            .data-label { font-size: 12px; }
+            .data-value { font-size: 16px; }
+            .btn { padding: 12px 20px; font-size: 15px; min-height: 48px; }
+            .chart-container { height: 220px; }
+            .ai-chat-box { height: 45vh; }
+            .ai-input input { padding: 12px; font-size: 15px; }
+            .ai-input button { padding: 12px 16px; }
+            .ai-bubble { padding: 10px 14px; font-size: 15px; }
+            .device-card { padding: 10px; }
+            .device-info h4 { font-size: 14px; }
+            .device-info p { font-size: 12px; }
+            .add-device-form input { padding: 12px; font-size: 15px; }
+            .bill-table th { padding: 6px; font-size: 11px; }
+            .bill-table td { padding: 6px; font-size: 12px; }
+            .record-item { padding: 5px; font-size: 12px; }
+            .login-card { padding: 24px 20px; width: 92%; }
+            .login-card input { padding: 14px; font-size: 15px; }
+            .login-title .line1 { font-size: 17px; }
+            .login-title .line2 { font-size: 24px; }
+            .logout-btn { padding: 5px 14px; font-size: 12px; }
+            #notif-panel { width: calc(100% - 20px); left: 10px; right: 10px; top: 60px; }
+            .help-icon { width: 16px; height: 16px; font-size: 12px; line-height: 16px; }
+            .violation-normal, .violation-warning, .violation-danger { padding: 12px; font-size: 14px; }
+        }
+
+        @media (max-width: 360px) {
+            .header h1 { font-size: 18px; }
+            .power-value { font-size: 34px; }
+            .tab { font-size: 12px; padding: 8px 3px; }
+            .card { padding: 10px; }
+            .data-value { font-size: 15px; }
+            .btn { padding: 10px 16px; font-size: 14px; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 22px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2d5a40;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        .loading {
+            text-align: center;
+            color: #7ba890;
+            padding: 20px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .loading::before {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #a4e4ce;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #7ba890;
+            padding: 20px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .card {
+            animation: fadeIn 0.3s ease-out;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .btn {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(164, 228, 206, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(164, 228, 206, 0.3);
+        }
+
+        .tab {
+            transition: all 0.3s ease;
+        }
+
+        .tab:active {
+            transform: scale(0.95);
+        }
+
+        .data-item {
+            transition: all 0.2s ease;
+        }
+
+        .data-item:hover {
+            background: #e8f5f0;
+        }
+
+        .power-display {
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .device-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .device-card:hover {
+            background: #e8f5f0;
+            transform: translateX(4px);
+        }
+
+        .ai-message {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* === 动画与UI美化 === */
+        .btn, button {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+        .tab-content {
+            animation: fadeSlideIn 0.3s ease;
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .data-card {
+            transition: all 0.3s ease;
+        }
+        .data-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(123,168,144,0.15);
+        }
+        .loading-spinner {
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .notif-panel {
+            animation: slideDown 0.25s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .device-card {
+            transition: all 0.25s ease;
+        }
+        .device-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        input:focus, select:focus {
+            transition: all 0.3s ease;
+            border-color: #7ba890 !important;
+            box-shadow: 0 0 0 3px rgba(123,168,144,0.15) !important;
+            outline: none;
+        }
+        .switch-toggle {
+            transition: all 0.3s ease;
+        }
+        @media (max-width: 768px) {
+            .data-card { padding: 12px; }
+            .tab-btn { padding: 10px 12px; font-size: 13px; }
+            .quick-btn { padding: 5px 10px; font-size: 11px; }
+        }
+        .quick-btn {
+            background: #f0f7f4;
+            color: #2d5a40;
+            border: 1px solid #a4e4ce;
+            padding: 6px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .quick-btn:hover {
+            background: #7ba890;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(123,168,144,0.3);
+        }
+        .quick-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- DEBUG: Script loading indicator -->
+    <div id="debug-banner" style="background:#ffe0b0;color:#664400;padding:6px 12px;text-align:center;font-size:12px;font-family:monospace;">
+        [DEBUG] Page loaded. JS starting...
+    </div>
+    <div id="login-page" class="login-page">
+        <div class="login-title">
+            <div class="line1">欢迎来到</div>
+            <div class="line2">EcoWise宿舍管家</div>
+        </div>
+        <div class="login-card">
+            <div id="login-form">
+                <input type="text" id="login-phone" placeholder="手机号">
+                <input type="password" id="login-password" placeholder="密码">
+                <button class="btn" onclick="doLogin()">登录</button>
+                <button class="btn" style="margin-top:8px;" onclick="showRegisterForm()">注册</button>
+            </div>
+            <div id="register-form" style="display:none;">
+                <input type="text" id="register-phone" placeholder="手机号">
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <input type="text" id="register-code" placeholder="验证码" style="flex:1;margin-bottom:0;">
+                    <button class="btn" style="width:auto;margin-top:0;padding:12px;white-space:nowrap;font-size:13px;" id="send-code-btn" onclick="sendVerifyCode()">获取验证码</button>
+                </div>
+                <input type="text" id="register-nickname" placeholder="用户名（如：同学A）">
+                <input type="password" id="register-password" placeholder="密码（至少8位，字母+数字）">
+                <input type="password" id="register-password2" placeholder="确认密码">
+                <button class="btn" onclick="doRegister()">注册</button>
+                <button class="btn" style="margin-top:8px;" onclick="showLoginForm()">返回登录</button>
+            </div>
+            <div id="login-error" style="color:#c45a5a;font-size:13px;margin-top:8px;text-align:center;"></div>
+        </div>
+        <div class="login-intro">智能守护宿舍用电安全，让每一度电都清清楚楚</div>
+    </div>
+    <div id="main-app" style="display:none;">
+    <div class="header">
+        <h1>EcoWise 宿舍助理</h1>
+        <p>智能用电管理 · AI 助手</p>
+        <div class="user-info" style="display:inline-flex;align-items:center;gap:10px;">
+            <a href="#" id="notif-bell" onclick="toggleNotificationPanel();return false;" style="font-size:22px;text-decoration:none;position:relative;" title="通知">
+                🔔
+                <span id="notif-badge" style="display:none;position:absolute;top:-6px;right:-10px;background:#ff4444;color:white;font-size:10px;width:18px;height:18px;border-radius:50%;text-align:center;line-height:18px;">0</span>
+            </a>
+            <a href="#" class="logout-btn" onclick="doLogout();return false;">退出</a>
+        </div>
+    </div>
+    <div id="notif-panel" style="display:none;position:fixed;top:70px;right:10px;width:280px;max-height:320px;overflow-y:auto;background:white;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.25);z-index:200;">
+        <div style="padding:12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+            <strong style="font-size:14px;">通知</strong>
+            <div style="display:flex;gap:8px;">
+                <a href="#" onclick="toggleNotificationPanel();return false;" style="font-size:12px;color:#999;">收起</a>
+            </div>
+        </div>
+        <div id="notif-list" style="padding:4px 0;"></div>
+    </div>
+    <div id="help-tooltip" class="help-tooltip"></div>
+
+    <div class="tabs" id="main-tabs">
+        <div class="tab active" id="tab-btn-realtime" onclick="showTab('realtime')">实时数据</div>
+        <div class="tab" id="tab-btn-history" onclick="showTab('history')">历史用电</div>
+        <div class="tab" id="tab-btn-bill" onclick="showTab('bill')">电费分摊</div>
+        <div class="tab" id="tab-btn-ai" onclick="showTab('ai')">AI助手</div>
+        <div class="tab" id="tab-btn-devices" onclick="showTab('devices')">设备管理</div>
+    </div>
+    
+        <div id="tab-realtime" class="tab-content" style="display: none;">
+            <div id="realtime-loading" class="loading">加载中...</div>
+            <div id="realtime-content" style="display: none;">
+                <div id="device-selector-area" style="margin-bottom:10px;">
+                    <select id="device-selector" onchange="switchDevice()" style="width:100%;padding:10px;border:2px solid #a4e4ce;border-radius:8px;font-size:14px;outline:none;">
+                        <option>加载中...</option>
+                    </select>
+                </div>
+                <div class="card">
+                    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">实时功率 <span id="device-online-status" class="device-status offline">离线</span></div>
+                    <div class="power-display">
+                        <div class="power-value"><span id="power-value">0.0</span> <span class="power-unit">W</span></div>
+                    </div>
+                    <div class="data-grid">
+                        <div class="data-item"><div class="data-label">电压</div><div class="data-value"><span id="voltage-value">0.0</span> <span class="data-label">V</span></div></div>
+                        <div class="data-item"><div class="data-label">电流</div><div class="data-value"><span id="current-value">0</span> <span class="data-label">mA</span></div></div>
+                        <div class="data-item"><div class="data-label">温度</div><div class="data-value"><span id="temperature-value">--</span> <span class="data-label">℃</span></div></div>
+                        <div class="data-item"><div class="data-label">湿度</div><div class="data-value"><span id="humidity-value">--</span> <span class="data-label">%</span></div></div>
+                    </div>
+                    <div id="led-buzzer-row" style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                      <div class="data-card" style="flex:1;min-width:140px;text-align:center;">
+                        <div style="font-size:13px;color:#666;margin-bottom:6px;">💡 LED指示灯</div>
+                        <div id="led-indicator" style="width:32px;height:32px;border-radius:50%;background:#4caf50;margin:8px auto;box-shadow:0 0 12px rgba(76,175,80,0.6);transition:all 0.5s;"></div>
+                        <div id="led-text" style="font-size:13px;color:#4caf50;font-weight:bold;">正常</div>
+                      </div>
+                      <div class="data-card" style="flex:1;min-width:140px;text-align:center;">
+                        <div style="font-size:13px;color:#666;margin-bottom:6px;">🔊 蜂鸣器</div>
+                        <div id="buzzer-icon" style="font-size:32px;margin:8px auto;transition:all 0.3s;">🔇</div>
+                        <div id="buzzer-text" style="font-size:13px;color:#999;font-weight:bold;">静音</div>
+                      </div>
+                    </div>
+                    <div id="violation-status"></div>
+                </div>
+                <div id="appliance-card" class="card" style="display:none;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="card-title">电器识别</div>
+                        <button class="btn" style="font-size:12px;padding:4px 8px;width:auto;" onclick="hideApplianceCard()">收起</button>
+                    </div>
+                    <div id="appliance-content"></div>
+                </div>
+                <div id="auto-off-card" style="display:none;margin-bottom:10px;">
+                    <div class="violation-danger">
+                        <strong>⚠️ 违规自动断电</strong>
+                        <div id="auto-off-detail" style="margin-top:6px;font-size:13px;"></div>
+                        <div id="auto-off-cooldown" style="margin-top:4px;font-size:13px;font-weight:bold;"></div>
+                        <button class="btn" style="margin-top:8px;font-size:12px;padding:4px 12px;" onclick="hideAutoOffCard()">收起</button>
+                    </div>
+                </div>
+                <button class="btn" id="view-warning-btn" style="display:none;margin-bottom:8px;background:#dc3545;color:#fff;" onclick="showAutoOffCard()">查看警告</button>
+                <button class="btn" id="switch-btn" onclick="toggleSwitch()">开启插座</button>
+                <button class="btn" onclick="refreshData(true)" style="margin-top:8px;">刷新数据</button>
+            </div>
+        </div>
+        </div>
+
+        <div id="tab-history" class="tab-content" style="display: none;">
+            <div class="tabs" id="history-tabs">
+                <div class="tab active" onclick="showHistory('today')">今日</div>
+                <div class="tab" onclick="showHistory('month')">本月</div>
+                <div class="tab" onclick="showHistory('carbon')">碳排放</div>
+
+            </div>
+            <div id="history-today">
+                <div id="today-loading" class="loading">加载中...</div>
+                <div id="today-content" style="display: none;">
+                    <div class="card">
+                        <div class="card-title">今日累计: <span id="today-total">0</span> 度</div>
+                        <div class="card-title">今日趋势</div>
+                        <div class="chart-container"><canvas id="today-chart" width="300" height="250"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">近期违规记录</div>
+                        <div id="today-violations" class="record-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="history-month" style="display: none;">
+                <div id="month-loading" class="loading">加载中...</div>
+                <div id="month-content" style="display: none;">
+                    <div class="card">
+                        <div class="card-title">本月累计: <span id="month-total">0</span> 度</div>
+                        <div class="card-title">本月趋势</div>
+                        <div class="chart-container"><canvas id="month-chart" width="300" height="250"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">本月违规记录（共<span id="month-violation-count">0</span>次）</div>
+                        <div id="month-violations" class="record-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="history-carbon" style="display: none;">
+                <div id="carbon-loading" class="loading">加载中...</div>
+                <div id="carbon-content" style="display: none;">
+                    <div class="card">
+                        <div class="card-title">今日碳排放</div>
+                        <div class="power-display">
+                            <div class="power-value"><span id="carbon-today">0.000</span> <span class="power-unit">kgCO₂</span></div>
+                        </div>
+                        <div style="font-size:12px;color:#7ba890;text-align:center;margin-top:8px;">
+                            今日用电 <span id="carbon-today-kwh">0.000</span> 度
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">本周碳排放趋势</div>
+                        <div class="chart-container"><canvas id="carbon-chart" width="300" height="250"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">累计碳排放</div>
+                        <div class="data-grid">
+                                <div class="data-item">
+                                    <div class="data-label">累计碳排放</div>
+                                    <div class="data-value"><span id="carbon-total">0.000</span> kgCO₂</div>
+                                </div>
+                                <div class="data-item">
+                                    <div class="data-label">等效植树</div>
+                                    <div class="data-value"><span id="carbon-trees">0.00</span> 棵<span class="help-icon" onclick="showCarbonHelp('trees')" title="点击查看解释">?</span></div>
+                                </div>
+                            </div>
+                            <div style="font-size:12px;color:#7ba890;text-align:center;margin-top:8px;">
+                                <span class="help-icon" onclick="showCarbonHelp('factor')" title="点击查看解释">?</span>碳排放因子: 0.5777 kgCO₂e/kWh
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="tab-bill" class="tab-content" style="display: none;">
+            <div class="tabs" id="bill-tabs">
+                <div class="tab active" onclick="showBillView('my')">我的电费</div>
+                <div class="tab" onclick="showBillView('space')">空间分摊</div>
+            </div>
+
+            <div id="bill-my">
+                <div id="my-bill-loading" class="loading">加载中...</div>
+                <div id="my-bill-content" style="display: none;">
+                    <div class="card">
+                        <div class="card-title">我的电费</div>
+                        <div class="power-display">
+                            <div class="power-value"><span id="my-bill-total">0.00</span> <span class="power-unit">元</span></div>
+                        </div>
+                        <table class="bill-table">
+                            <thead><tr><th>设备</th><th>用电量(度)</th><th>应交(元)</th></tr></thead>
+                            <tbody id="my-bill-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="bill-space" style="display: none;">
+                <div id="space-invitations-area"></div>
+                <div id="space-main-area">
+                    <div id="space-list-loading" class="loading">加载中...</div>
+                    <div id="space-list-content" style="display:none;">
+                        <div id="space-selector-area" style="margin-bottom:10px;">
+                            <select id="space-selector" onchange="loadSpaceBill()" style="width:100%;padding:10px;border:2px solid #a4e4ce;border-radius:8px;font-size:14px;outline:none;">
+                                <option value="">选择空间...</option>
+                            </select>
+                        </div>
+                        <div id="space-bill-area"></div>
+                        <div class="card">
+                            <button class="btn" onclick="showCreateSpaceForm()">创建空间</button>
+                            <button class="btn" style="margin-top:8px;" onclick="showInviteForm()">邀请室友</button>
+                            <button class="btn" style="margin-top:8px;" onclick="showSpaceMembers()">查看成员</button>
+                            <button class="btn btn-danger" style="margin-top:8px;" onclick="leaveOrDeleteSpace()">离开/删除空间</button>
+                        </div>
+                    </div>
+                    <div id="space-empty" style="display:none;text-align:center;padding:30px 15px;">
+                        <div style="color:#7ba890;font-size:14px;margin-bottom:15px;">你还没有加入任何空间</div>
+                        <button class="btn" onclick="showCreateSpaceForm()" style="width:auto;display:inline-block;">创建空间</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="create-space-card" style="display:none;">
+                <div class="card-title">创建空间</div>
+                <div class="add-device-form">
+                    <input type="text" id="space-name-input" placeholder="空间名称（如：302宿舍）">
+                    <button class="btn" onclick="confirmCreateSpace()">确认创建</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelCreateSpace()">取消</button>
+                </div>
+            </div>
+
+            <div class="card" id="invite-card" style="display:none;">
+                <div class="card-title">邀请室友</div>
+                <div class="add-device-form">
+                    <input type="text" id="invite-phone-input" placeholder="室友手机号">
+                    <input type="text" id="invite-alias-input" placeholder="备注名（可选，如：小明）">
+                    <button class="btn" onclick="confirmInvite()">确认邀请</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelInvite()">取消</button>
+                </div>
+            </div>
+
+            <div class="card" id="members-card" style="display:none;">
+                <div class="card-title">空间成员</div>
+                <div id="members-list"></div>
+                <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelMembers()">关闭</button>
+            </div>
+
+            <div class="card" id="alias-card" style="display:none;">
+                <div class="card-title">设置备注名</div>
+                <div class="add-device-form">
+                    <input type="text" id="alias-input" placeholder="备注名">
+                    <button class="btn" onclick="confirmSetAlias()">确认</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelSetAlias()">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-ai" class="tab-content" style="display: none;">
+            <div class="card">
+                <div class="card-title">用电周报</div>
+                <div id="report-step-start" style="display:block;">
+                    <button class="btn" id="gen-report-btn" onclick="showReportStepType()">生成本周用电周报</button>
+                </div>
+                <div id="report-step-type" style="display:none;">
+                    <div style="font-size:14px;color:#333;margin-bottom:10px;text-align:center;">请选择周报类型</div>
+                    <button class="btn" style="margin-bottom:8px;" onclick="confirmReportType('personal')">个人周报</button>
+                    <button class="btn" onclick="confirmReportType('space')">空间周报</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="backToReportStart()">返回</button>
+                </div>
+                <div id="report-step-space" style="display:none;">
+                    <div style="font-size:14px;color:#333;margin-bottom:10px;text-align:center;">请选择空间</div>
+                    <select id="report-space-selector" style="width:100%;padding:10px;border:2px solid #a4e4ce;border-radius:8px;font-size:14px;outline:none;">
+                        <option value="">选择空间...</option>
+                    </select>
+                    <button class="btn" style="margin-top:10px;" onclick="confirmSpaceReport()">确认生成</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="backToReportType()">返回</button>
+                </div>
+                <div id="weekly-report-area" style="display:none;margin-top:10px;padding:10px;background:#f5faf8;border-radius:8px;font-size:14px;line-height:1.6;white-space:pre-wrap;"></div>
+                <div id="weekly-report-summary" style="display:none;margin-top:10px;"></div>
+                <button class="btn" id="hide-report-btn" style="display:none;margin-top:10px;background:#ccc;color:#333;" onclick="hideWeeklyReport()">收起周报</button>
+            </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 4px;">
+                  <button id="location-btn" onclick="requestLocation()" class="quick-btn" style="background:#fff3e0;border-color:#ffb74d;color:#e65100;">📍 授权位置查天气</button>
+                  <span style="font-size:11px;color:#999;">授权后可查本地天气</span>
+                </div>
+                <div id="quick-questions" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding:0 4px;">
+                  <button onclick="sendQuickQuestion('现在天气怎么样？')" class="quick-btn">🌤️ 天气查询</button>
+                  <button onclick="sendQuickQuestion('我现在的用电情况如何？')" class="quick-btn">⚡ 用电情况</button>
+                  <button onclick="sendQuickQuestion('怎么省电？给些建议')" class="quick-btn">💡 省电技巧</button>
+                  <button onclick="sendQuickQuestion('本周我的电费大概多少？')" class="quick-btn">💰 电费预估</button>
+                  <button onclick="sendQuickQuestion('最近有没有违规用电的情况？')" class="quick-btn">⚠️ 违规查询</button>
+                  <button onclick="sendQuickQuestion('今晚熬夜会有什么影响？')" class="quick-btn">🌙 作息提醒</button>
+                </div>
+
+            <div class="card">
+                <div class="card-title">AI 智能助手</div>
+                <div class="ai-chat-box" id="ai-chat">
+                    <div class="ai-message assistant">
+                        <div class="ai-bubble assistant">你好！我是 EcoWise AI 助手，可以帮你查询用电情况、分析用电习惯、回答关于宿舍用电的问题。</div>
+                    </div>
+                </div>
+                <div class="ai-input">
+                    <input type="text" id="ai-input" placeholder="请输入..." onkeypress="if(event.keyCode==13)sendAiMessage()">
+                    <button onclick="sendAiMessage()">发送</button>
+                </div>
+            </div>
+
+<!-- 备忘录卡片 -->
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="font-size:15px;color:#2d5a40;">📝 我的备忘录</h3>
+                    <button onclick="loadMemos()" style="background:none;border:1px solid #a4e4ce;color:#2d5a40;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;">刷新</button>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                    <input type="date" id="memo-date" style="flex:2;min-width:100px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <input type="time" id="memo-time" value="09:00" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <input type="text" id="memo-content" placeholder="备忘录内容..." style="flex:3;min-width:120px;padding:6px 8px;border:1px solid #a4e4ce;border-radius:6px;font-size:12px;">
+                    <button onclick="addMemo()" style="background:#7ba890;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">添加</button>
+                </div>
+                <div id="memo-list" style="max-height:200px;overflow-y:auto;"></div>
+            </div>
+
+        </div>
+
+        <div id="tab-devices" class="tab-content" style="display: none;">
+            <div class="card">
+                <div class="card-title" id="device-list-title">我的设备</div>
+                <div id="device-list"></div>
+            </div>
+            <div class="card" id="device-actions">
+                <button class="btn" onclick="showAddDeviceForm()">添加设备</button>
+                <button class="btn" style="margin-top:8px;" onclick="showModifyDevicePage()">修改设备</button>
+                <button class="btn btn-danger" style="margin-top:8px;" onclick="showDeleteDevicePage()">删除设备</button>
+                <button class="btn" style="margin-top:8px;" onclick="showPairDeviceForm()">设备配对</button>
+                <button class="btn" id="push-toggle-btn" style="margin-top:8px;background:#7ba890;" onclick="togglePushSubscription()">🔔 开启推送</button>
+                <button class="btn" style="margin-top:8px;background:#6ba889;" onclick="sendTestPush()">📲 测试推送通知</button>
+            </div>
+            <div class="card" id="modify-select-card" style="display:none;">
+                <div class="card-title">选择要修改的设备</div>
+                <div id="modify-device-list"></div>
+                <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelModifyDevice()">取消</button>
+            </div>
+            <div class="card" id="modify-device-card" style="display:none;">
+                <div class="card-title">修改设备信息</div>
+                <div class="add-device-form">
+                    <input type="text" id="modify-device-id" placeholder="设备ID" readonly style="background:#f0f0f0;">
+                    <input type="text" id="modify-device-name" placeholder="设备名称">
+                    <input type="text" id="modify-device-group" placeholder="设备分组（如：电脑设备、照明设备）">
+                    <button class="btn" onclick="confirmModifyDevice()">确认修改</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelModifyDevice()">取消</button>
+                </div>
+            </div>
+            <div class="card" id="add-device-card" style="display:none;">
+                <div class="card-title">添加新设备</div>
+                <div class="add-device-form">
+                    <input type="text" id="new-device-id" placeholder="设备ID">
+                    <input type="text" id="new-device-name" placeholder="设备名称">
+                    <input type="text" id="new-device-group" placeholder="设备分组（如：电脑设备、照明设备）">
+                    <button class="btn" onclick="confirmAddDevice()">确认添加</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelAddDevice()">取消</button>
+                </div>
+            </div>
+            <div class="card" id="delete-device-card" style="display:none;">
+                <div class="card-title">选择要删除的设备</div>
+                <div id="delete-device-list"></div>
+                <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelDeleteDevice()">取消</button>
+            </div>
+            <div class="card" id="pair-device-card" style="display:none;">
+                <div class="card-title">设备配对（插座与开发板）</div>
+                <div class="add-device-form">
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:13px;color:#666;">选择插座设备：</label>
+                        <select id="pair-socket-select" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:5px;">
+                            <option value="">请选择插座</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:13px;color:#666;">选择开发板设备：</label>
+                        <select id="pair-board-select" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:5px;">
+                            <option value="">请选择开发板</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="confirmPairDevices()">确认配对</button>
+                    <button class="btn" style="margin-top:8px;background:#ccc;color:#333;" onclick="cancelPairDevices()">取消</button>
+                </div>
+            </div>
+
+            <div id="simulation-panel" style="margin-top:20px;background:white;border-radius:12px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+                <h3 style="color:#2d5a40;margin-bottom:15px;">模拟模式（演示用）</h3>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                    <span>模拟模式开关：</span>
+                    <button id="sim-toggle-btn" onclick="toggleSimulation()" style="background:#7ba890;color:white;border:none;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:14px;transition:all 0.3s;">开启模拟模式</button>
+                </div>
+                <div id="sim-scenes" style="display:none;">
+                    <p style="color:#666;font-size:13px;margin-bottom:8px;">选择预设场景：</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px;" id="sim-scene-buttons">
+                    </div>
+                    <p style="color:#666;font-size:13px;margin-bottom:8px;">自定义数据（可选）：</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="sim-custom-form">
+                        <div><label style="font-size:12px;">功率(W)</label><input type="number" id="sim-power" placeholder="150" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">电压(V)</label><input type="number" id="sim-voltage" placeholder="220" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">电流(mA)</label><input type="number" id="sim-current" placeholder="680" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">温度(℃)</label><input type="number" id="sim-temp" placeholder="25" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">湿度(%)</label><input type="number" id="sim-humidity" placeholder="55" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"></div>
+                        <div><label style="font-size:12px;">LED颜色</label><select id="sim-led" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="green">绿色(正常)</option><option value="yellow">黄色(预警)</option><option value="red">红色(告警)</option><option value="off">熄灭</option></select></div>
+                        <div><label style="font-size:12px;">蜂鸣器</label><select id="sim-buzzer" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="false">关闭</option><option value="true">鸣响</option></select></div>
+                        <div><label style="font-size:12px;">开关状态</label><select id="sim-switch" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"><option value="true">开启</option><option value="false">关闭</option></select></div>
+                    </div>
+                    <button onclick="applyCustomSimulation()" style="margin-top:10px;background:#7ba890;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">应用自定义数据</button>
+                </div>
+            </div>
+
+            <div id="simulation-bar" style="display:none;background:linear-gradient(135deg,#ff9a56,#ff6b6b);color:white;padding:8px 16px;text-align:center;font-size:13px;border-radius:0 0 8px 8px;margin:0 10px;">
+      🔴 <strong>模拟模式已开启</strong> - 当前场景：<span id="sim-scene-name">自定义</span>
+      <button onclick="toggleSimulation()" style="margin-left:10px;background:white;color:#ff6b6b;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">关闭模拟</button>
+    </div>
+
+        </div>
+
+
+    <script>
+
+        // Direct error handler (runs first)
+        window.addEventListener('error', function(e) {
+            var banner = document.getElementById('debug-banner');
+            if (banner) {
+                banner.textContent = '[ERROR] ' + e.message + ' at line ' + e.lineno;
+                banner.style.background = '#ffcccc';
+                banner.style.color = '#cc0000';
+            }
+        });
+        
+        // Promise rejection handler
+        window.addEventListener('unhandledrejection', function(e) {
+            var banner = document.getElementById('debug-banner');
+            if (banner) {
+                banner.textContent = '[PROMISE ERROR] ' + (e.reason ? e.reason.message || e.reason : 'unknown');
+                banner.style.background = '#ffcccc';
+                banner.style.color = '#cc0000';
+            }
+        });
+
+        // Update debug banner when script loads
+        var _dbg = document.getElementById('debug-banner');
+        if (_dbg) { _dbg.textContent = '[DEBUG] JS script started. Functions loading...'; }
+
+        // Catch ALL syntax errors
+        try {
+            (function() { "use strict"; return true; })();
+            if (_dbg) { _dbg.textContent = '[DEBUG] Strict mode OK. Continuing...'; }
+        } catch(e) {
+            if (_dbg) { _dbg.textContent = '[CRITICAL] JS engine error: ' + e.message; }
+        }
+
+        // 全局错误捕获：手机浏览器如果 JS 崩溃，把错误显示出来
+        window.onerror = function(msg, url, line, col, err) {
+            var el = document.getElementById('global-error-bar');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'global-error-bar';
+
+                el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#f8d7da;color:#721c24;padding:10px;z-index:9999;font-size:12px;max-height:120px;overflow:auto;';
+                document.body.appendChild(el);
+            }
+            el.innerHTML += '<div>JS错误: ' + msg + ' (line ' + line + ')</div>';
+        };
+
+        // 统一封装 fetch，默认携带 cookie，解决跨域登录状态丢失
+        (function() {
+            var originalFetch = window.fetch;
+            window.fetch = function(url, options) {
+                options = options || {};
+                if (options.credentials === undefined) {
+                    options.credentials = 'include';
+                }
+                return originalFetch(url, options);
+            };
+        })();
+
+        function isDarkMode() {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+
+        function customConfirm(message) {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+                const modal = document.createElement('div');
+                modal.className = 'custom-modal';
+                const msg = document.createElement('p');
+                msg.textContent = message;
+                const btnContainer = document.createElement('div');
+                btnContainer.style.cssText = 'display:flex;gap:10px;';
+                const confirmBtn = document.createElement('button');
+                confirmBtn.textContent = '确认';
+                confirmBtn.className = 'btn';
+                confirmBtn.onclick = function() { document.body.removeChild(overlay); resolve(true); };
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '取消';
+                cancelBtn.className = 'btn';
+                cancelBtn.onclick = function() { document.body.removeChild(overlay); resolve(false); };
+                btnContainer.appendChild(confirmBtn);
+                btnContainer.appendChild(cancelBtn);
+                modal.appendChild(msg);
+                modal.appendChild(btnContainer);
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+            });
+        }
+
+        function customAlert(message) {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+                const modal = document.createElement('div');
+                modal.className = 'custom-modal';
+                const msg = document.createElement('p');
+                msg.textContent = message;
+                const okBtn = document.createElement('button');
+                okBtn.textContent = '确定';
+                okBtn.className = 'btn';
+                okBtn.style.cssText = 'width:auto;padding:8px 30px;';
+                okBtn.onclick = function() { document.body.removeChild(overlay); resolve(); };
+                modal.appendChild(msg);
+                modal.appendChild(okBtn);
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+            });
+        }
+
+        function showTab(tabName) {
+            window.scrollTo(0, 0);
+            document.querySelectorAll('#main-tabs .tab').forEach(t => t.classList.remove('active'));
+            const tabBtn = document.getElementById('tab-btn-' + tabName);
+            if (tabBtn) tabBtn.classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            ['pair-device-card', 'delete-device-card', 'modify-device-card', 'modify-select-card', 'add-device-card'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            const targetTab = document.getElementById('tab-' + tabName);
+
+            // 模拟模式横幅只显示在设备管理tab
+            const simBar = document.getElementById('simulation-bar');
+            if (simBar) {
+                simBar.style.display = (tabName === 'devices' && simulationEnabled) ? 'block' : 'none';
+            }
+            if (targetTab) {
+                targetTab.style.display = 'block';
+            }
+            if (tabName === 'realtime') {
+                const rc = document.getElementById('realtime-content');
+                const rl = document.getElementById('realtime-loading');
+                if (rc) rc.style.display = 'block';
+                if (rl) rl.style.display = 'block';
+            }
+
+            if (tabName === 'realtime') refreshData();
+            else if (tabName === 'history') {
+                document.querySelectorAll('#history-tabs .tab').forEach(t => t.classList.remove('active'));
+                const todayTab = document.querySelector('#history-tabs .tab');
+                if (todayTab) todayTab.classList.add('active');
+                ['history-today', 'history-month', 'history-carbon', 'history-schedule'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+                const ht = document.getElementById('history-today');
+                if (ht) ht.style.display = 'block';
+                loadToday();
+            }
+            else if (tabName === 'bill') {
+                document.querySelectorAll('#bill-tabs .tab').forEach(t => t.classList.remove('active'));
+                const myTab = document.querySelector('#bill-tabs .tab');
+                if (myTab) myTab.classList.add('active');
+                ['bill-my', 'bill-space'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+                const bm = document.getElementById('bill-my');
+                if (bm) bm.style.display = 'block';
+                hideAllSpaceForms();
+                loadMyBill();
+            }
+            else if (tabName === 'devices') {
+                loadDevices();
+            }
+            else if (tabName === 'ai') {
+                document.getElementById('weekly-report-area').style.display = 'none';
+                document.getElementById('weekly-report-summary').style.display = 'none';
+                document.getElementById('hide-report-btn').style.display = 'none';
+                document.getElementById('report-step-start').style.display = 'block';
+                document.getElementById('gen-report-btn').style.display = 'block';
+                document.getElementById('weekly-report-area').textContent = '';
+                document.getElementById('weekly-report-summary').innerHTML = '';
+                currentReportType = 'personal';
+                const reportStepSpace = document.getElementById('report-step-space');
+                if (reportStepSpace) reportStepSpace.style.display = 'none';
+                const aiInput = document.getElementById('ai-input');
+                if (aiInput) aiInput.value = '';
+                // 保留聊天记录：仅在没有实际对话时显示欢迎消息
+                const aiChat = document.getElementById('ai-chat');
+                if (aiChat && aiChatHistory.length === 0) {
+                    aiChat.innerHTML = '<div class="ai-message assistant"><div class="ai-bubble assistant">你好！我是 EcoWise AI 助手，可以帮你查询用电情况、分析用电习惯、回答关于宿舍用电的问题。</div></div>';
+                }
+            }
+        }
+
+        function showHistory(tabName) {
+            document.querySelectorAll('#history-tabs .tab').forEach(t => t.classList.remove('active'));
+            const activeTab = document.querySelector('#history-tabs .tab[onclick*="' + tabName + '"]');
+            if (activeTab) activeTab.classList.add('active');
+
+            ['history-today', 'history-month', 'history-carbon'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            const target = document.getElementById('history-' + tabName);
+            if (target) target.style.display = 'block';
+
+            if (tabName === 'today') loadToday();
+            else if (tabName === 'month') loadMonth();
+            else if (tabName === 'carbon') loadCarbon();
+        }
+
+        let currentDevice = null;
+        let autoOffCardHidden = false;
+        let allDevices = [];
+        let selectedDeviceId = null;
+        let currentUsername = '';
+        let isRefreshing = false;
+        let refreshAbortController = null;
+
+        // 前端数据缓存，避免 tab 之间反复请求
+        const dataCache = {
+            devices: { data: null, timestamp: 0 },
+            today: { data: null, timestamp: 0 },
+            todayViolations: { data: null, timestamp: 0 },
+            month: { data: null, timestamp: 0 },
+            monthViolations: { data: null, timestamp: 0 },
+            carbon: { data: null, timestamp: 0 }
+        };
+        const DATA_CACHE_TTL_MS = 10000; // 10 秒内重复切换不重新请求
+
+        function isCacheValid(key) {
+            const entry = dataCache[key];
+            return entry && entry.data && (Date.now() - entry.timestamp) < DATA_CACHE_TTL_MS;
+        }
+
+        function setCache(key, data) {
+            dataCache[key] = { data: data, timestamp: Date.now() };
+        }
+
+        function invalidateCache(key) {
+            if (dataCache[key]) dataCache[key] = { data: null, timestamp: 0 };
+        }
+
+        function switchDevice() {
+            const selector = document.getElementById('device-selector');
+            selectedDeviceId = selector.value;
+            invalidateCache('today');
+            invalidateCache('todayViolations');
+            invalidateCache('month');
+            invalidateCache('monthViolations');
+            invalidateCache('carbon');
+            refreshData(true);
+            if (document.getElementById('tab-history').style.display !== 'none') {
+                if (document.getElementById('history-today').style.display !== 'none') {
+                    loadToday();
+                } else if (document.getElementById('history-month').style.display !== 'none') {
+                    loadMonth();
+                } else {
+                    loadCarbon();
+                }
+            }
+        }
+
+        async function toggleSwitch() {
+            if (!currentDevice) {
+                await customAlert('请先添加设备');
+                return;
+            }
+            const target = !currentDevice.switch_on;
+            const btn = document.getElementById('switch-btn');
+            btn.disabled = true;
+            btn.textContent = '操作中...';
+            try {
+                const res = await fetch('/api/device/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: currentDevice.device_id, on: target })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentDevice.switch_on = target;
+                    btn.textContent = target ? '关闭插座' : '开启插座';
+                } else {
+                    await customAlert('操作失败: ' + data.message);
+                    btn.textContent = currentDevice.switch_on ? '关闭插座' : '开启插座';
+                }
+            } catch (e) {
+                await customAlert('网络错误: ' + e.message);
+                btn.textContent = currentDevice.switch_on ? '关闭插座' : '开启插座';
+            }
+            btn.disabled = false;
+        }
+
+        async function refreshData(showLoading) {
+            // 用户手动刷新（showLoading=true）不受请求锁限制，自动轮询（showLoading=false/undefined）受锁限制
+            if (!showLoading && isRefreshing) return;
+            if (showLoading) {
+                // 用户主动刷新：取消之前的自动轮询请求
+                if (refreshAbortController) refreshAbortController.abort();
+            }
+            isRefreshing = true;
+            const loadingEl = document.getElementById('realtime-loading');
+            const contentEl = document.getElementById('realtime-content');
+            if (!loadingEl || !contentEl) { isRefreshing = false; return; }
+            const isFirstLoad = !contentEl.style.display || contentEl.style.display === 'none';
+            if (isFirstLoad || showLoading) {
+                if (loadingEl) loadingEl.style.display = 'block';
+                if (contentEl) contentEl.style.display = 'none';
+                if (loadingEl) loadingEl.textContent = '加载中...';
+            }
+            try {
+                const controller = new AbortController();
+                refreshAbortController = controller;
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                const res = await fetch('/api/devices', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                const result = await res.json();
+                const hint = result.hint || '';
+                const devices = Array.isArray(result) ? result : (result.devices || []);
+                allDevices = devices;
+                const selectorArea = document.getElementById('device-selector-area');
+
+                if (!devices || devices.length === 0) {
+                    loadingEl.style.display = 'none';
+                    contentEl.style.display = 'block';
+                    if (selectorArea) {
+                        let msg = hint || '请先添加设备';
+                        selectorArea.innerHTML = '<div style="text-align:center;color:#7ba890;padding:12px;border:2px dashed #a4e4ce;border-radius:8px;font-size:14px;">' + msg + '</div>';
+                    }
+                    document.getElementById('power-value').textContent = '0.0';
+                    document.getElementById('voltage-value').textContent = '0.0';
+                    document.getElementById('current-value').textContent = '0';
+                    document.getElementById('temperature-value').textContent = '--';
+                    document.getElementById('humidity-value').textContent = '--';
+                    const switchBtn = document.getElementById('switch-btn');
+                    if (switchBtn) {
+                        switchBtn.textContent = '开启插座';
+                        switchBtn.disabled = false;
+                    }
+                    const violationEl = document.getElementById('violation-status');
+                    if (violationEl) violationEl.innerHTML = '';
+                    currentDevice = null;
+                    return;
+                }
+
+                if (selectorArea) {
+                    selectorArea.innerHTML = '<select id="device-selector" onchange="switchDevice()" style="width:100%;padding:10px;border:2px solid #a4e4ce;border-radius:8px;font-size:14px;outline:none;"></select>';
+                }
+                const selector = document.getElementById('device-selector');
+                if (selector) {
+                    if (!selectedDeviceId || !devices.find(d => d.device_id === selectedDeviceId)) {
+                        selectedDeviceId = devices[0].device_id;
+                    }
+                    selector.innerHTML = devices.map(d =>
+                        '<option value="' + d.device_id + '"' + (d.device_id === selectedDeviceId ? ' selected' : '') + '>' + (d.device_name || d.device_id) + ' (' + (d.owner || '') + ')</option>'
+                    ).join('');
+                }
+                const d = devices.find(d => d.device_id === selectedDeviceId) || devices[0];
+                currentDevice = d;
+                const isOnline = d.online;
+                const onlineStatusEl = document.getElementById('device-online-status');
+                if (onlineStatusEl) {
+                    onlineStatusEl.textContent = isOnline ? '在线' : '离线';
+                    onlineStatusEl.className = 'device-status ' + (isOnline ? 'online' : 'offline');
+                }
+                const power = isOnline ? (d.power_w || 0) : 0;
+                document.getElementById('power-value').textContent = power < 1 ? '0.0' : power;
+                document.getElementById('voltage-value').textContent = isOnline ? (d.voltage_v || '0.0') : '0.0';
+                document.getElementById('current-value').textContent = isOnline ? (d.current_ma || '0') : '0';
+                document.getElementById('temperature-value').textContent = isOnline ? (d.temperature_c || '--') : '--';
+                document.getElementById('humidity-value').textContent = isOnline ? (d.humidity_percent || '--') : '--';
+                const switchBtn = document.getElementById('switch-btn');
+                if (switchBtn) {
+                    switchBtn.textContent = d.switch_on ? '关闭插座' : '开启插座';
+                    switchBtn.disabled = false;
+                }
+                loadAutoOffStatus();
+                // 更新模拟模式数据（去掉 currentDevice 依赖，模拟模式下没有真实设备也能工作）
+                if (simulationEnabled) {
+                    try {
+                        const simResp = await fetch('/api/simulation/data?device_id=' + currentDevice.device_id);
+                        const simData = await simResp.json();
+                        if (simData && simData._simulated) {
+                            updateLEDBuzzer(simData);
+                            document.getElementById('power-value').textContent = simData.power_w || '0.0';
+                            document.getElementById('voltage-value').textContent = simData.voltage_v || '0.0';
+                            document.getElementById('current-value').textContent = simData.current_ma || '0';
+                            document.getElementById('temperature-value').textContent = simData.temperature_c || '--';
+                            document.getElementById('humidity-value').textContent = simData.humidity_percent || '--';
+                            if (document.getElementById('sim-scene-name')) {
+                                document.getElementById('sim-scene-name').textContent = simData.scene || '自定义';
+                            }
+                        }
+                    } catch (e) {}
+                    loadViolationStatus();
+                } else {
+                    // 非模拟模式：根据实际功率确定LED状态
+                    const actualPower = currentDevice ? (currentDevice.power_w || 0) : 0;
+                    const isOnline = currentDevice && currentDevice.online;
+                    let ledColor = 'off';
+                    if (!isOnline) {
+                        ledColor = 'off';
+                    } else if (actualPower > 800) {
+                        ledColor = 'red';
+                    } else if (actualPower > 450) {
+                        ledColor = 'yellow';
+                    } else {
+                        ledColor = 'off';
+                    }
+                    const buzzerOn = actualPower > 800;
+                    updateLEDBuzzer({led: ledColor, buzzer: buzzerOn});
+                    loadViolationStatus();
+                }
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'block';
+            } catch (e) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'block';
+                console.error('refreshData error:', e.message);
+            } finally {
+                isRefreshing = false;
+                refreshAbortController = null;
+            }
+        }
+
+        async function loadAutoOffStatus() {
+            const card = document.getElementById('auto-off-card');
+            const warningBtn = document.getElementById('view-warning-btn');
+            if (!card || !currentDevice) {
+                if (card) card.style.display = 'none';
+                if (warningBtn) warningBtn.style.display = 'none';
+                return;
+            }
+            try {
+                const res = await fetch('/api/device/auto_off_status?device_id=' + currentDevice.device_id);
+                const data = await res.json();
+                const event = data.event;
+                if (!event) {
+                    card.style.display = 'none';
+                    warningBtn.style.display = 'none';
+                    autoOffCardHidden = false;
+                    return;
+                }
+                const detailEl = document.getElementById('auto-off-detail');
+                const cooldownEl = document.getElementById('auto-off-cooldown');
+                if (!detailEl || !cooldownEl) return;
+                detailEl.innerHTML = '断电时间：' + event.triggered_at + '<br>触发功率：' + event.trigger_power + 'W';
+                if (event.in_cooldown) {
+                    cooldownEl.textContent = '冷却期剩余 ' + event.remaining_minutes + ' 分钟，期间无法开启';
+                } else if (!event.is_released) {
+                    cooldownEl.textContent = '冷却期已过，可重新开启插座';
+                } else {
+                    card.style.display = 'none';
+                    warningBtn.style.display = 'none';
+                    autoOffCardHidden = false;
+                    return;
+                }
+                
+                if (autoOffCardHidden) {
+                    card.style.display = 'none';
+                    warningBtn.style.display = 'block';
+                } else {
+                    card.style.display = 'block';
+                    warningBtn.style.display = 'none';
+                }
+            } catch (e) {
+                card.style.display = 'none';
+                warningBtn.style.display = 'none';
+            }
+        }
+
+        async function loadViolationStatus() {
+            try {
+                const el = document.getElementById('violation-status');
+                if (!el) return;
+                let level = 'normal';
+                let text = '';
+
+                const isOnline = currentDevice && currentDevice.online;
+
+                if (simulationEnabled && currentDevice) {
+                    const powerEl = document.getElementById('power-value');
+            const power = powerEl ? (parseFloat(powerEl.textContent) || 0) : 0;
+                    const tempEl = document.getElementById('temperature-value');
+                    const humEl = document.getElementById('humidity-value');
+                    const temp = tempEl ? parseFloat(tempEl.textContent) : null;
+                    const hum = humEl ? parseFloat(humEl.textContent) : null;
+                    
+                    if (!isOnline) {
+                        text = '设备当前离线，请检查插座网络状态';
+                    } else if (power > 800) {
+                        level = 'violation';
+                        text = '违规告警！功率超过红线(800W)，疑似使用违规电器，请立即关闭！';
+                    } else if (power > 450) {
+                        level = 'warning';
+                        text = '限电预警！功率接近限电阈值(450W)，建议关闭部分大功率设备。';
+                    } else if (temp !== null && !isNaN(temp) && (temp > 35 || temp < 5)) {
+                        level = 'warning';
+                        text = '温度异常(' + temp + '℃)，请注意环境温度！';
+                    } else if (hum !== null && !isNaN(hum) && (hum > 80 || hum < 20)) {
+                        level = 'warning';
+                        text = '湿度异常(' + hum + '%)，请注意环境湿度！';
+                    } else {
+                        text = '用电正常，当前功率处于安全范围。';
+                    }
+                    
+                    el.className = 'violation-' + (level === 'violation' ? 'danger' : level === 'warning' ? 'warning' : 'normal');
+                    el.textContent = text;
+                    return;
+                }
+
+                const res = await fetch('/api/violation');
+                const devices = await res.json();
+                const d = devices.find(d => d.device_id === selectedDeviceId) || devices[0];
+                const hasPowerData = currentDevice && currentDevice.power_w !== null && currentDevice.power_w > 0;
+
+                if (!isOnline) {
+                    text = '设备当前离线，请检查插座网络状态';
+                } else if (!hasPowerData) {
+                    text = '用电正常，当前功率处于安全范围。';
+                } else if (d && d.violation) {
+                    level = d.violation.level;
+                    if (level === 'violation') {
+                        text = '违规告警！功率超过红线，疑似使用违规电器，请立即关闭！';
+                    } else if (level === 'warning') {
+                        text = '限电预警！功率接近限电阈值，建议关闭部分大功率设备。';
+                    }
+                }
+
+                if (!text) {
+                    text = '用电正常，当前功率处于安全范围。';
+                }
+
+                el.className = 'violation-' + (level === 'violation' ? 'danger' : level === 'warning' ? 'warning' : 'normal');
+                el.textContent = text;
+            } catch (e) {}
+        }
+
+        async function loadApplianceIdentify() {
+            const card = document.getElementById('appliance-card');
+            const contentEl = document.getElementById('appliance-content');
+            if (!card || !contentEl || !currentDevice) {
+                card.style.display = 'none';
+                return;
+            }
+            const power = currentDevice.power_w || 0;
+            if (power < 5) {
+                card.style.display = 'none';
+                return;
+            }
+            try {
+                const res = await fetch('/api/appliance/identify?power_w=' + power + '&duration=10');
+                const result = await res.json();
+                if (result.appliance_name) {
+                    const riskColor = result.risk_level === 'high' ? '#ff6b6b' : result.risk_level === 'medium' ? '#ffc107' : '#4caf50';
+                    contentEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<span style="font-size:24px;">' + (result.icon || '🔌') + '</span>' +
+                        '<div>' +
+                        '<div style="font-weight:bold;font-size:15px;">' + result.appliance_name + '</div>' +
+                        '<div style="font-size:13px;color:#666;">置信度: ' + (result.confidence * 100).toFixed(1) + '%</div>' +
+                        '<div style="font-size:13px;color:' + riskColor + ';">风险等级: ' + (result.risk_level === 'high' ? '高' : result.risk_level === 'medium' ? '中' : '低') + '</div>' +
+                        '</div></div>' +
+                        (result.advice ? '<div style="margin-top:8px;font-size:13px;color:#2d5a40;padding:8px;background:#e8f5f0;border-radius:6px;">💡 ' + result.advice + '</div>' : '');
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            } catch (e) {
+                card.style.display = 'none';
+            }
+        }
+
+        function hideAutoOffCard() {
+            document.getElementById('auto-off-card').style.display = 'none';
+            document.getElementById('view-warning-btn').style.display = 'block';
+            autoOffCardHidden = true;
+        }
+
+        function showAutoOffCard() {
+            document.getElementById('auto-off-card').style.display = 'block';
+            document.getElementById('view-warning-btn').style.display = 'none';
+            autoOffCardHidden = false;
+        }
+
+        function hideApplianceCard() {
+            document.getElementById('appliance-card').style.display = 'none';
+        }
+
+        function showCarbonHelp(type) {
+            const tooltip = document.getElementById('help-tooltip');
+            if (!tooltip) return;
+            if (type === 'factor') {
+                tooltip.innerHTML = '<strong style="color:#2d5a40;">碳排放因子</strong><br>碳排放因子表示每消耗1度电(kWh)产生的二氧化碳量。当前使用的是中国电网平均值0.5777 kgCO₂e/kWh。这个数值来源于国家发改委发布的《中国区域电网基准线排放因子》。<div style="margin-top:10px;text-align:right;"><button class="btn" style="font-size:12px;padding:4px 12px;" onclick="hideCarbonHelp()">收起</button></div>';
+            } else if (type === 'trees') {
+                tooltip.innerHTML = '<strong style="color:#2d5a40;">等效植树</strong><br>一棵树每年大约能吸收18公斤二氧化碳。等效植树数 = 累计碳排放量(kg) ÷ 18。这个指标帮助你直观了解减少碳排放对环境的贡献。<div style="margin-top:10px;text-align:right;"><button class="btn" style="font-size:12px;padding:4px 12px;" onclick="hideCarbonHelp()">收起</button></div>';
+            }
+            tooltip.style.left = '50%';
+            tooltip.style.top = '50%';
+            tooltip.style.transform = 'translate(-50%, -50%)';
+            tooltip.classList.add('show');
+        }
+
+        function hideCarbonHelp() {
+            const tooltip = document.getElementById('help-tooltip');
+            if (tooltip) {
+                tooltip.classList.remove('show');
+            }
+        }
+
+        const chartInstances = {};
+
+        function drawChart(canvasId, data, labels, valueField, unit, enableScroll = false, maxTicks = null) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js 未加载，跳过图表绘制');
+                return;
+            }
+
+            valueField = valueField || 'kwh';
+            unit = unit || '度';
+
+            if (chartInstances[canvasId]) {
+                chartInstances[canvasId].destroy();
+            }
+
+            const dark = isDarkMode();
+            const gridColor = dark ? '#3a4239' : '#e8f0ec';
+            const axisColor = dark ? '#6ba889' : '#7ba890';
+            const barColor = dark ? '#4a9d7a' : '#8ccaaf';
+            const textColor = dark ? '#a4e4ce' : '#2d5a40';
+            const bgColor = dark ? '#252b28' : '#ffffff';
+
+            const values = (data || []).map(d => d[valueField] || 0);
+            const hasData = values.some(v => v > 0);
+
+            // 计算 Y 轴刻度，确保始终显示 5 条水平网格线
+            const maxValue = Math.max(...values, 0);
+            let yMax = maxValue * 1.1;
+            if (yMax === 0) yMax = 1;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(yMax)));
+            const normalized = yMax / magnitude;
+            let niceMax;
+            if (normalized <= 1) niceMax = magnitude;
+            else if (normalized <= 2) niceMax = 2 * magnitude;
+            else if (normalized <= 5) niceMax = 5 * magnitude;
+            else niceMax = 10 * magnitude;
+            const stepSize = niceMax / 5;
+
+            const ctx = canvas.getContext('2d');
+
+            if (enableScroll) {
+                const barWidth = 30;
+                const gap = 15;
+                const chartWidth = Math.max(canvas.offsetWidth, labels.length * (barWidth + gap) + 80);
+                canvas.width = chartWidth;
+                canvas.style.width = chartWidth + 'px';
+            }
+
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: unit,
+                        data: values,
+                        backgroundColor: values.map(v => v > 0 ? barColor : '#e0e0e0'),
+                        borderRadius: 4,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: !enableScroll,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 45,
+                            bottom: 35,
+                            left: 25,
+                            right: 25
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: bgColor,
+                            titleColor: textColor,
+                            bodyColor: textColor,
+                            borderColor: gridColor,
+                            borderWidth: 1,
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.raw.toFixed(3) + ' ' + unit;
+                                }
+                            }
+                        },
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: axisColor, 
+                                font: { size: 10 },
+                                rotation: enableScroll ? 0 : 0,
+                                maxRotation: enableScroll ? 0 : 45,
+                                minRotation: enableScroll ? 0 : 0
+                            }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            min: 0,
+                            max: niceMax,
+                            ticks: { 
+                                color: axisColor, 
+                                font: { size: 10 },
+                                stepSize: stepSize,
+                                callback: function(value) {
+                                    return value.toFixed(2);
+                                }
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    animation: {
+                        duration: 800,
+                        easing: 'easeOutQuart',
+                        onComplete: function() {
+                            const chart = this;
+                            const ctx = chart.ctx;
+                            ctx.save();
+                            ctx.font = 'bold 10px Arial';
+                            ctx.fillStyle = textColor;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            
+                            chart.data.datasets.forEach(function(dataset) {
+                                chart.getDatasetMeta(0).data.forEach(function(bar, index) {
+                                    const value = dataset.data[index];
+                                    if (value > 0) {
+                                        const x = bar.x;
+                                        const y = bar.y - 8;
+                                        ctx.fillText(value.toFixed(3), x, y);
+                                    }
+                                });
+                            });
+                            ctx.restore();
+                        }
+                    }
+                }
+            });
+
+            if (!hasData && (!data || data.length === 0)) {
+                ctx.fillStyle = axisColor;
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('暂无数据', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function renderTodayData(data) {
+            var _e = document.getElementById('today-total'); if (_e) _e.textContent = parseFloat(data.total_kwh || 0).toFixed(3);
+            const hourly = data.hourly || [];
+            const labels = hourly.map(h => h.hour + '时');
+            drawChart('today-chart', hourly, labels, 'kwh', '度', true, 5);
+            _e = document.getElementById('today-loading'); if (_e) _e.style.display = 'none';
+            _e = document.getElementById('today-content'); if (_e) _e.style.display = 'block';
+        }
+
+        async function loadToday() {
+            const cachedToday = isCacheValid('today');
+            const cachedViolations = isCacheValid('todayViolations');
+            if (cachedToday) {
+                renderTodayData(dataCache.today.data);
+            }
+            if (cachedViolations) {
+                renderTodayViolations(dataCache.todayViolations.data);
+            }
+            if (cachedToday && cachedViolations) return;
+
+            if (!cachedToday) {
+                var _e2 = document.getElementById('today-loading'); if (_e2) _e2.style.display = 'block';
+                _e2 = document.getElementById('today-content'); if (_e2) _e2.style.display = 'none';
+            }
+            try {
+                if (!cachedToday) {
+                    const res = await fetch('/api/today?device_id=' + encodeURIComponent(selectedDeviceId || ''));
+                    const data = await res.json();
+                    setCache('today', data);
+                    renderTodayData(data);
+                }
+                if (!cachedViolations) {
+                    loadTodayViolations();
+                }
+            } catch (e) {
+                _e2 = document.getElementById('today-loading'); if (_e2) _e2.textContent = '加载失败: ' + e.message;
+            }
+        }
+
+        function renderTodayViolations(data) {
+            const el = document.getElementById('today-violations');
+            if (!el) return;
+            if (data.count === 0) {
+                el.innerHTML = '<div class="no-data">今日暂无违规记录</div>';
+            } else {
+                el.innerHTML = data.violations.map(v =>
+                    '<div class="record-item"><span>' + v.time + ' ' + v.device_name + '</span><span>' + v.appliance + ' 峰值' + v.peak_power + 'W ' + v.duration_minutes + '分钟</span></div>'
+                ).join('');
+            }
+        }
+
+        async function loadTodayViolations() {
+            try {
+                const res = await fetch('/api/violations/today?device_id=' + encodeURIComponent(selectedDeviceId || ''));
+                const data = await res.json();
+                setCache('todayViolations', data);
+                renderTodayViolations(data);
+            } catch (e) {
+                document.getElementById('today-violations').innerHTML = '<div class="loading">加载失败</div>';
+            }
+        }
+
+        function renderMonthData(data) {
+            var _e3 = document.getElementById('month-total'); if (_e3) _e3.textContent = parseFloat(data.total_kwh || 0).toFixed(3);
+            const daily = data.daily || [];
+            const labels = daily.map(d => d.dateShort + '日');
+            drawChart('month-chart', daily, labels, 'kwh', '度', true, 5);
+            _e3 = document.getElementById('month-loading'); if (_e3) _e3.style.display = 'none';
+            _e3 = document.getElementById('month-content'); if (_e3) _e3.style.display = 'block';
+        }
+
+        async function loadMonth() {
+            const cachedMonth = isCacheValid('month');
+            const cachedViolations = isCacheValid('monthViolations');
+            if (cachedMonth) {
+                renderMonthData(dataCache.month.data);
+            }
+            if (cachedViolations) {
+                renderMonthViolations(dataCache.monthViolations.data);
+            }
+            if (cachedMonth && cachedViolations) return;
+
+            if (!cachedMonth) {
+                var _e4 = document.getElementById('month-loading'); if (_e4) _e4.style.display = 'block';
+                _e4 = document.getElementById('month-content'); if (_e4) _e4.style.display = 'none';
+            }
+            try {
+                if (!cachedMonth) {
+                    const res = await fetch('/api/month?device_id=' + encodeURIComponent(selectedDeviceId || ''));
+                    const data = await res.json();
+                    setCache('month', data);
+                    renderMonthData(data);
+                }
+                if (!cachedViolations) {
+                    loadMonthViolations();
+                }
+            } catch (e) {
+                _e4 = document.getElementById('month-loading'); if (_e4) _e4.textContent = '加载失败: ' + e.message;
+            }
+        }
+
+        function renderMonthViolations(data) {
+            var _ev = document.getElementById('month-violation-count'); if (_ev) _ev.textContent = data.total_count || 0;
+            const el = document.getElementById('month-violations');
+            if (!el) return;
+            if (data.total_count === 0) {
+                el.innerHTML = '<div class="no-data">本月暂无违规记录</div>';
+            } else {
+                el.innerHTML = data.daily.map(d =>
+                    '<div class="record-item"><span>' + d.dateShort + '日（' + d.count + '次）</span><span>' + d.devices.map(dev => dev.time + ' ' + dev.appliance).join('，') + '</span></div>'
+                ).join('');
+            }
+        }
+
+        function renderCarbonData(today, week, total) {
+            var _ec = document.getElementById('carbon-today'); if (_ec) _ec.textContent = parseFloat(today.carbon_kg || 0).toFixed(3);
+            _ec = document.getElementById('carbon-today-kwh'); if (_ec) _ec.textContent = parseFloat(today.total_kwh || 0).toFixed(3);
+            _ec = document.getElementById('carbon-total'); if (_ec) _ec.textContent = parseFloat(total.carbon_kg || 0).toFixed(3);
+            _ec = document.getElementById('carbon-trees'); if (_ec) _ec.textContent = parseFloat(total.trees_equivalent || 0).toFixed(2);
+
+            const daily = week.daily || [];
+            const labels = daily.map(d => d.dateShort + '日');
+            drawChart('carbon-chart', daily, labels, 'carbon_kg', null, false, 5);
+
+            _ec = document.getElementById('carbon-loading'); if (_ec) _ec.style.display = 'none';
+            _ec = document.getElementById('carbon-content'); if (_ec) _ec.style.display = 'block';
+        }
+
+        async function loadCarbon() {
+            if (isCacheValid('carbon')) {
+                const cached = dataCache.carbon.data;
+                renderCarbonData(cached.today, cached.week, cached.total);
+                return;
+            }
+            var _ec2 = document.getElementById('carbon-loading'); if (_ec2) _ec2.style.display = 'block';
+            _ec2 = document.getElementById('carbon-content'); if (_ec2) _ec2.style.display = 'none';
+            try {
+                const deviceId = selectedDeviceId || '';
+                const [todayRes, weekRes, totalRes] = await Promise.all([
+                    fetch('/api/carbon/today' + (deviceId ? '?device_id=' + encodeURIComponent(deviceId) : '')),
+                    fetch('/api/carbon/week' + (deviceId ? '?device_id=' + encodeURIComponent(deviceId) : '')),
+                    fetch('/api/carbon/total' + (deviceId ? '?device_id=' + encodeURIComponent(deviceId) : ''))
+                ]);
+                const today = await todayRes.json();
+                const week = await weekRes.json();
+                const total = await totalRes.json();
+
+                setCache('carbon', { today, week, total });
+                renderCarbonData(today, week, total);
+            } catch (e) {
+                _ec2 = document.getElementById('carbon-loading'); if (_ec2) _ec2.textContent = '加载失败: ' + e.message;
+            }
+        }
+
+        async function loadMonthViolations() {
+            try {
+                const res = await fetch('/api/violations/month?device_id=' + encodeURIComponent(selectedDeviceId || ''));
+                const data = await res.json();
+                setCache('monthViolations', data);
+                renderMonthViolations(data);
+            } catch (e) {
+                document.getElementById('month-violations').innerHTML = '<div class="loading">加载失败</div>';
+            }
+        }
+
+        async function loadMyBill() {
+            var _eb = document.getElementById('my-bill-loading'); if (_eb) _eb.style.display = 'block';
+            _eb = document.getElementById('my-bill-content'); if (_eb) _eb.style.display = 'none';
+            try {
+                const res = await fetch('/api/my_bill');
+                const bill = await res.json();
+                var _ebt = document.getElementById('my-bill-total'); if (_ebt) _ebt.textContent = parseFloat(bill.total_amount || 0).toFixed(2);
+                const tbody = document.getElementById('my-bill-body');
+            if (!tbody) return;
+                if (bill.devices && bill.devices.length > 0) {
+                    tbody.innerHTML = bill.devices.map(d =>
+                        '<tr><td>' + d.name + '</td><td>' + parseFloat(d.kwh || 0).toFixed(3) + '</td><td>' + parseFloat(d.yuan || 0).toFixed(2) + '</td></tr>'
+                    ).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" style="color:#7ba890;">暂无设备数据</td></tr>';
+                }
+                _eb = document.getElementById('my-bill-loading'); if (_eb) _eb.style.display = 'none';
+            _eb = document.getElementById('my-bill-content'); if (_eb) _eb.style.display = 'block';
+            } catch (e) {
+                _eb = document.getElementById('my-bill-loading'); if (_eb) _eb.textContent = '加载失败: ' + e.message;
+            }
+        }
+
+        function showBillView(view) {
+            document.querySelectorAll('#bill-tabs .tab').forEach(t => t.classList.remove('active'));
+            const activeTab = document.querySelector('#bill-tabs .tab[onclick*="' + view + '"]');
+            if (activeTab) activeTab.classList.add('active');
+            var _b = document.getElementById('bill-my'); if (_b) _b.style.display = view === 'my' ? 'block' : 'none';
+            _b = document.getElementById('bill-space'); if (_b) _b.style.display = view === 'space' ? 'block' : 'none';
+            hideAllSpaceForms();
+            if (view === 'my') {
+                loadMyBill();
+            } else {
+                loadSpaceInvitations();
+                loadSpaceList();
+            }
+        }
+
+        let currentSpaceId = null;
+        let currentSpaceIsCreator = false;
+        let spaceMap = {};
+
+        function hideAllSpaceForms() {
+            document.getElementById('create-space-card').style.display = 'none';
+            document.getElementById('invite-card').style.display = 'none';
+            document.getElementById('members-card').style.display = 'none';
+            document.getElementById('alias-card').style.display = 'none';
+        }
+
+        async function loadSpaceInvitations() {
+            try {
+                const res = await fetch('/api/space/invitations');
+                const data = await res.json();
+                const area = document.getElementById('space-invitations-area');
+                if (data.invitations && data.invitations.length > 0) {
+                    area.innerHTML = data.invitations.map(inv =>
+                        '<div class="card invitation-card">' +
+                        '<div class="invitation-title">收到邀请</div>' +
+                        '<div class="invitation-desc">' + inv.inviter + ' 邀请你加入「' + inv.space_name + '」</div>' +
+                        '<div style="display:flex;gap:8px;margin-top:10px;">' +
+                        '<button class="btn" style="margin-top:0;flex:1;" onclick="respondToInvitation(' + inv.invitation_id + ', true)">接受</button>' +
+                        '<button class="btn" style="margin-top:0;flex:1;background:#ccc;color:#333;" onclick="respondToInvitation(' + inv.invitation_id + ', false)">拒绝</button>' +
+                        '</div></div>'
+                    ).join('');
+                } else {
+                    area.innerHTML = '';
+                }
+            } catch (e) {}
+        }
+
+        async function respondToInvitation(invitationId, accept) {
+            try {
+                const res = await fetch('/api/space/invite/respond', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ invitation_id: invitationId, accept: accept })
+                });
+                const data = await res.json();
+                await customAlert(data.message);
+                if (data.success) {
+                    loadSpaceInvitations();
+                    loadSpaceList();
+                }
+            } catch (e) {
+                await customAlert('网络错误');
+            }
+        }
+
+        async function loadSpaceList() {
+            var _es = document.getElementById('space-list-loading'); if (_es) _es.style.display = 'block';
+            _es = document.getElementById('space-list-content'); if (_es) _es.style.display = 'none';
+            _es = document.getElementById('space-empty'); if (_es) _es.style.display = 'none';
+            try {
+                const res = await fetch('/api/space/list');
+                const data = await res.json();
+                const selector = document.getElementById('space-selector');
+                if (data.spaces && data.spaces.length > 0) {
+                    spaceMap = {};
+                    data.spaces.forEach(s => { spaceMap[s.space_id] = s.is_creator; });
+                    selector.innerHTML = '<option value="">选择空间...</option>' +
+                        data.spaces.map(s =>
+                            '<option value="' + s.space_id + '"' + (s.space_id === currentSpaceId ? ' selected' : '') + '>' + s.space_name + (s.is_creator ? '（我创建的）' : '') + '</option>'
+                        ).join('');
+                    _es = document.getElementById('space-list-loading'); if (_es) _es.style.display = 'none';
+                    _es = document.getElementById('space-list-content'); if (_es) _es.style.display = 'block';
+                    if (!currentSpaceId || !data.spaces.find(s => s.space_id === currentSpaceId)) {
+                        currentSpaceId = data.spaces[0].space_id;
+                        currentSpaceIsCreator = data.spaces[0].is_creator;
+                        selector.value = currentSpaceId;
+                    }
+                    loadSpaceBill();
+                } else {
+                    currentSpaceId = null;
+                    _es = document.getElementById('space-list-loading'); if (_es) _es.style.display = 'none';
+                    _es = document.getElementById('space-empty'); if (_es) _es.style.display = 'block';
+                    _es = document.getElementById('space-list-content'); if (_es) _es.style.display = 'none';
+                }
+            } catch (e) {
+                _es = document.getElementById('space-list-loading'); if (_es) _es.textContent = '加载失败';
+            }
+        }
+
+        async function loadSpaceBill() {
+            const selector = document.getElementById('space-selector');
+            if (!selector) return;
+            currentSpaceId = selector.value ? parseInt(selector.value) : null;
+            currentSpaceIsCreator = currentSpaceId ? !!spaceMap[currentSpaceId] : false;
+
+            const billArea = document.getElementById('space-bill-area');
+            if (!billArea) return;
+            if (!currentSpaceId) {
+                billArea.innerHTML = '';
+                return;
+            }
+            billArea.innerHTML = '<div class="loading">加载中...</div>';
+            try {
+                const res = await fetch('/api/space/bill?space_id=' + currentSpaceId);
+                const data = await res.json();
+                if (data.error) {
+                    billArea.innerHTML = '<div class="loading">' + data.error + '</div>';
+                    return;
+                }
+                let html = '<div class="card">' +
+                    '<div class="card-title">空间电费分摊</div>' +
+                    '<div class="power-display">' +
+                    '<div class="power-value"><span>' + parseFloat(data.total_yuan || 0).toFixed(2) + '</span> <span class="power-unit">元</span></div>' +
+                    '</div>' +
+                    '<table class="bill-table">' +
+                    '<thead><tr><th>成员</th><th>用电量(度)</th><th>应交(元)</th></tr></thead>' +
+                    '<tbody>';
+                if (data.per_person && data.per_person.length > 0) {
+                    html += data.per_person.map(p =>
+                        '<tr><td>' + p.name + '</td><td>' + parseFloat(p.kwh || 0).toFixed(3) + '</td><td>' + parseFloat(p.yuan || 0).toFixed(2) + '</td></tr>'
+                    ).join('');
+                } else {
+                    html += '<tr><td colspan="3" style="color:#7ba890;">暂无数据</td></tr>';
+                }
+                html += '</tbody></table></div>';
+                billArea.innerHTML = html;
+            } catch (e) {
+                billArea.innerHTML = '<div class="loading">加载失败</div>';
+            }
+        }
+
+        function showCreateSpaceForm() {
+            hideAllSpaceForms();
+            document.getElementById('create-space-card').style.display = 'block';
+            document.getElementById('space-name-input').value = '';
+        }
+
+        function cancelCreateSpace() {
+            document.getElementById('create-space-card').style.display = 'none';
+        }
+
+        async function confirmCreateSpace() {
+            const name = document.getElementById('space-name-input').value.trim();
+            if (!name) {
+                await customAlert('请输入空间名称');
+                return;
+            }
+            try {
+                const res = await fetch('/api/space/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                await customAlert(data.message);
+                if (data.success) {
+                    cancelCreateSpace();
+                    currentSpaceId = data.space_id;
+                    loadSpaceList();
+                }
+            } catch (e) {
+                await customAlert('网络错误');
+            }
+        }
+
+        function showInviteForm() {
+            if (!currentSpaceId) {
+                customAlert('请先选择一个空间');
+                return;
+            }
+            hideAllSpaceForms();
+            document.getElementById('invite-card').style.display = 'block';
+            document.getElementById('invite-phone-input').value = '';
+            document.getElementById('invite-alias-input').value = '';
+        }
+
+        function cancelInvite() {
+            document.getElementById('invite-card').style.display = 'none';
+        }
+
+        async function confirmInvite() {
+            const phone = document.getElementById('invite-phone-input').value.trim();
+            const alias = document.getElementById('invite-alias-input').value.trim();
+            if (!phone) {
+                await customAlert('请输入室友手机号');
+                return;
+            }
+            try {
+                const res = await fetch('/api/space/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ space_id: currentSpaceId, phone, alias })
+                });
+                const data = await res.json();
+                await customAlert(data.message);
+                if (data.success) {
+                    cancelInvite();
+                }
+            } catch (e) {
+                await customAlert('网络错误');
+            }
+        }
+
+        async function showSpaceMembers() {
+            if (!currentSpaceId) {
+                customAlert('请先选择一个空间');
+                return;
+            }
+            hideAllSpaceForms();
+            try {
+                const res = await fetch('/api/space/members?space_id=' + currentSpaceId);
+                const data = await res.json();
+                if (data.error) {
+                    await customAlert(data.error);
+                    return;
+                }
+                const list = document.getElementById('members-list');
+                list.innerHTML = data.members.map(m =>
+                    '<div class="device-card">' +
+                    '<div class="device-info"><h4>' + m.display_name + '</h4>' +
+                    '<p>' + (m.role === 'creator' ? '创建者' : '成员') + (m.alias ? ' · 昵称：' + m.nickname : '') + '</p></div>' +
+                    (currentSpaceIsCreator && m.role !== 'creator' ?
+                        '<button class="btn" style="margin-top:5px;width:auto;padding:4px 12px;font-size:12px;" onclick="showAliasForm(\'' + m.phone + '\', \'' + (m.alias || '') + '\')">设置备注</button>'
+                    : '') +
+                    '</div>'
+                ).join('');
+                document.getElementById('members-card').style.display = 'block';
+            } catch (e) {
+                await customAlert('加载失败');
+            }
+        }
+
+        function cancelMembers() {
+            document.getElementById('members-card').style.display = 'none';
+        }
+
+        let aliasTargetPhone = null;
+        function showAliasForm(phone, currentAlias) {
+            aliasTargetPhone = phone;
+            document.getElementById('alias-input').value = currentAlias;
+            document.getElementById('alias-card').style.display = 'block';
+        }
+
+        function cancelSetAlias() {
+            document.getElementById('alias-card').style.display = 'none';
+            aliasTargetPhone = null;
+        }
+
+        async function confirmSetAlias() {
+            const alias = document.getElementById('alias-input').value.trim();
+            try {
+                const res = await fetch('/api/member/alias', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ space_id: currentSpaceId, member_phone: aliasTargetPhone, alias })
+                });
+                const data = await res.json();
+                await customAlert(data.message);
+                if (data.success) {
+                    cancelSetAlias();
+                    showSpaceMembers();
+                }
+            } catch (e) {
+                await customAlert('网络错误');
+            }
+        }
+
+        async function leaveOrDeleteSpace() {
+            if (!currentSpaceId) {
+                customAlert('请先选择一个空间');
+                return;
+            }
+            if (currentSpaceIsCreator) {
+                if (!await customConfirm('你是该空间的创建者，删除空间将移除所有成员，确认删除吗？')) return;
+                try {
+                    const res = await fetch('/api/space/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ space_id: currentSpaceId })
+                    });
+                    const data = await res.json();
+                    await customAlert(data.message);
+                    if (data.success) {
+                        currentSpaceId = null;
+                        loadSpaceList();
+                    }
+                } catch (e) {
+                    await customAlert('网络错误');
+                }
+            } else {
+                if (!await customConfirm('确认离开该空间吗？')) return;
+                try {
+                    const res = await fetch('/api/space/leave', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ space_id: currentSpaceId })
+                    });
+                    const data = await res.json();
+                    await customAlert(data.message);
+                    if (data.success) {
+                        currentSpaceId = null;
+                        loadSpaceList();
+                    }
+                } catch (e) {
+                    await customAlert('网络错误');
+                }
+            }
+        }
+
+        let userLocation = null;
+
+        async function requestLocation() {
+            if (!navigator.geolocation) {
+                customAlert('你的浏览器不支持地理定位功能。AI将使用默认城市查询天气，你也可以直接告诉AI城市名（如"北京天气"）。');
+                return;
+            }
+            const locBtn = document.getElementById('location-btn');
+            if (locBtn) {
+                locBtn.textContent = '定位中...';
+                locBtn.disabled = true;
+            }
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 20000, enableHighAccuracy: false });
+                });
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                await fetch('/api/user/location', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(userLocation),
+                    credentials: 'include'
+                });
+                customAlert('位置授权成功！现在AI可以查询你所在城市的天气了~');
+                const locBtn = document.getElementById('location-btn');
+                if (locBtn) {
+                    locBtn.textContent = '📍 已定位';
+                    locBtn.style.background = '#5a8a6e';
+                }
+            } catch (e) {
+                let msg = '';
+                if (e.code === 1) msg = '位置访问被拒绝，请在浏览器设置中允许位置权限';
+                else if (e.code === 2) msg = '位置信息无法获取，请检查GPS/网络';
+                else if (e.code === 3) msg = '获取位置超时（已等待20秒）。请确保手机GPS已开启，或在开阔区域重试';
+                else msg = '获取位置失败，AI将使用默认城市查询天气。请确保浏览器已允许位置权限。';
+                customAlert(msg);
+            }
+        }
+
+        function sendQuickQuestion(question) {
+            const input = document.getElementById('ai-input');
+            if (input) {
+                input.value = question;
+                sendAiMessage();
+            }
+        }
+
+        let aiChatHistory = [];
+
+        async function sendAiMessage() {
+            const input = document.getElementById('ai-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            const chat = document.getElementById('ai-chat');
+
+            chat.innerHTML += '<div class="ai-message user"><div class="ai-bubble user">' + message + '</div></div>';
+            chat.innerHTML += '<div class="ai-message assistant"><div class="ai-bubble assistant">思考中...</div></div>';
+            chat.scrollTop = chat.scrollHeight;
+
+            // 保存用户消息到历史
+            aiChatHistory.push({ role: 'user', content: message });
+            // 只保留最近 10 轮对话
+            if (aiChatHistory.length > 20) {
+                aiChatHistory = aiChatHistory.slice(-20);
+            }
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                // 直接传递位置信息（绕过 session，确保可靠）
+                const reqBody = { message: message, history: aiChatHistory };
+                if (userLocation && userLocation.lat && userLocation.lng) {
+                    reqBody.lat = userLocation.lat;
+                    reqBody.lng = userLocation.lng;
+                }
+                const res = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },       
+                    body: JSON.stringify(reqBody),
+                    signal: controller.signal,
+                    credentials: 'include'
+                });
+                clearTimeout(timeoutId);
+                const data = await res.json();
+                const reply = data.reply || 'AI助手暂时无法响应，请稍后再试。可能的原因是网络连接问题或AI服务正在维护。';
+                const bubbles = chat.querySelectorAll('.ai-message.assistant .ai-bubble');
+                bubbles[bubbles.length - 1].textContent = reply;
+                // 保存助手回复到历史
+                aiChatHistory.push({ role: 'assistant', content: reply });
+            } catch (e) {
+                const bubbles = chat.querySelectorAll('.ai-message.assistant .ai-bubble');
+                if (e.name === 'AbortError') {
+                    bubbles[bubbles.length - 1].textContent = 'AI响应超时，请稍后重试';
+                } else {
+                    bubbles[bubbles.length - 1].textContent = '网络异常，请检查连接后重试';
+                }
+            }
+            chat.scrollTop = chat.scrollHeight;
+            setTimeout(() => { if (typeof loadMemos === 'function') loadMemos(); }, 1500);
+        }
+
+        let currentReportType = 'personal';
+
+        function showReportStepType() {
+            document.getElementById('report-step-start').style.display = 'none';
+            document.getElementById('report-step-type').style.display = 'block';
+            document.getElementById('report-step-space').style.display = 'none';
+            document.getElementById('weekly-report-area').style.display = 'none';
+            document.getElementById('weekly-report-summary').style.display = 'none';
+            document.getElementById('hide-report-btn').style.display = 'none';
+        }
+
+        function backToReportStart() {
+            document.getElementById('report-step-start').style.display = 'block';
+            document.getElementById('report-step-type').style.display = 'none';
+            document.getElementById('report-step-space').style.display = 'none';
+        }
+
+        function confirmReportType(type) {
+            currentReportType = type;
+            if (type === 'space') {
+                document.getElementById('report-step-type').style.display = 'none';
+                document.getElementById('report-step-space').style.display = 'block';
+                loadSpaceOptionsForReport();
+            } else {
+                generateWeeklyReport();
+            }
+        }
+
+        function backToReportType() {
+            document.getElementById('report-step-space').style.display = 'none';
+            document.getElementById('report-step-type').style.display = 'block';
+        }
+
+        async function loadSpaceOptionsForReport() {
+            try {
+                const res = await fetch('/api/space/list');
+                const data = await res.json();
+                const selector = document.getElementById('report-space-selector');
+                if (data.spaces && data.spaces.length > 0) {
+                    selector.innerHTML = '<option value="">选择空间...</option>' +
+                        data.spaces.map(s => '<option value="' + s.space_id + '">' + s.space_name + '</option>').join('');
+                } else {
+                    selector.innerHTML = '<option value="">暂无空间</option>';
+                }
+            } catch (e) {
+                console.error('加载空间列表失败:', e);
+            }
+        }
+
+        async function confirmSpaceReport() {
+            const spaceId = document.getElementById('report-space-selector').value;
+            if (!spaceId) {
+                await customAlert('请先选择空间');
+                return;
+            }
+            await generateWeeklyReport(spaceId);
+        }
+
+        async function generateWeeklyReport(spaceId) {
+            const btn = document.getElementById('gen-report-btn');
+            const area = document.getElementById('weekly-report-area');
+            const summary = document.getElementById('weekly-report-summary');
+            
+            document.getElementById('report-step-start').style.display = 'none';
+            document.getElementById('report-step-type').style.display = 'none';
+            document.getElementById('report-step-space').style.display = 'none';
+            
+            try {
+                const res = await fetch('/api/devices');
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
+                if (!devices || devices.length === 0) {
+                    btn.disabled = false;
+                    btn.textContent = '生成本周用电周报';
+                    area.style.display = 'block';
+                    area.innerHTML = '<div style="color:#999;text-align:center;padding:10px;">暂无数据，请先添加设备</div>';
+                    return;
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = '生成本周用电周报';
+                area.style.display = 'block';
+                area.innerHTML = '<div style="color:#999;text-align:center;padding:10px;">暂无数据，请先添加设备</div>';
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = '生成中...（约10秒）';
+            area.style.display = 'block';
+            area.textContent = '正在汇总本周用电数据并生成周报...';
+            summary.style.display = 'none';
+            document.getElementById('hide-report-btn').style.display = 'none';
+            
+            try {
+                let url = '/api/weekly_report/generate';
+                let options = { method: 'POST' };
+                if (currentReportType === 'space') {
+                    url = '/api/weekly_report/space/generate';
+                    options = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ space_id: spaceId }) };
+                }
+                const res = await fetch(url, options);
+                const data = await res.json();
+                if (data.success && data.report) {
+                    const r = data.report;
+                    area.innerHTML = '<strong>📊 ' + r.week_start + ' 至 ' + r.week_end + ' ' + (currentReportType === 'space' ? '空间' : '个人') + '用电周报</strong>\n\n' + r.content;
+                    
+                    summary.style.display = 'block';
+                    summary.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">' +
+                        '<div style="background:#e8f5f0;padding:12px;border-radius:8px;text-align:center;">' +
+                        '<div style="font-size:12px;color:#7ba890;">总用电</div>' +
+                        '<div style="font-size:24px;font-weight:bold;color:#2d5a40;">' + r.total_kwh + '</div>' +
+                        '<div style="font-size:11px;color:#7ba890;">度</div>' +
+                        '</div>' +
+                        '<div style="background:#fff3cd;padding:12px;border-radius:8px;text-align:center;">' +
+                        '<div style="font-size:12px;color:#856404;">电费</div>' +
+                        '<div style="font-size:24px;font-weight:bold;color:#856404;">' + r.total_yuan + '</div>' +
+                        '<div style="font-size:11px;color:#856404;">元</div>' +
+                        '</div>' +
+                        '<div style="background:#f8d7da;padding:12px;border-radius:8px;text-align:center;">' +
+                        '<div style="font-size:12px;color:#721c24;">碳排放</div>' +
+                        '<div style="font-size:24px;font-weight:bold;color:#721c24;">' + r.carbon_kg + '</div>' +
+                        '<div style="font-size:11px;color:#721c24;">kgCO₂</div>' +
+                        '</div>' +
+                        '<div style="background:#d4edda;padding:12px;border-radius:8px;text-align:center;">' +
+                        '<div style="font-size:12px;color:#155724;">违规次数</div>' +
+                        '<div style="font-size:24px;font-weight:bold;color:#155724;">' + r.violation_count + '</div>' +
+                        '<div style="font-size:11px;color:#155724;">次</div>' +
+                        '</div>' +
+                        '</div>';
+                    document.getElementById('hide-report-btn').style.display = 'block';
+                } else {
+                    area.textContent = '生成失败：' + (data.message || '未知错误');
+                }
+            } catch (e) {
+                area.textContent = '网络错误：' + e.message;
+            }
+            btn.disabled = false;
+            btn.textContent = '生成本周用电周报';
+        }
+
+        function hideWeeklyReport() {
+            var _wr = document.getElementById('weekly-report-area'); if (_wr) _wr.style.display = 'none';
+            _wr = document.getElementById('weekly-report-summary'); if (_wr) _wr.style.display = 'none';
+            _wr = document.getElementById('hide-report-btn'); if (_wr) _wr.style.display = 'none';
+            _wr = document.getElementById('report-step-start'); if (_wr) _wr.style.display = 'block';
+        }
+
+        // ============ 模拟模式 ============
+        let simulationEnabled = false;
+
+        async function toggleSimulation(event) {
+            const btn = document.getElementById('sim-toggle-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '切换中...';
+            }
+            try {
+                const resp = await fetch('/api/simulation/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await resp.json();
+                simulationEnabled = data.enabled;
+                updateSimulationUI();
+                if (simulationEnabled) {
+                    await loadSimScenes();
+                }
+                refreshData();
+                customAlert(data.message || (simulationEnabled ? '模拟模式已开启' : '模拟模式已关闭'));
+            } catch (e) {
+                console.error('模拟模式切换失败:', e);
+                customAlert('模拟模式切换失败: ' + (e.message || '网络错误，请检查服务器连接'));
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        async function loadSimScenes() {
+            try {
+                const resp = await fetch('/api/simulation/status');
+                const data = await resp.json();
+                const scenes = data.scenes || [];
+                const container = document.getElementById('sim-scene-buttons');
+                if (container) {
+                    container.innerHTML = scenes.map(s =>
+                        '<button onclick="applySimScene(\'' + s.name + '\')" style="background:#f0f7f4;color:#2d5a40;border:1px solid #a4e4ce;padding:8px 14px;border-radius:18px;cursor:pointer;font-size:12px;transition:all 0.3s;" ' +
+                        (s.name === data.current_scene ? 'class="sim-active"' : '') +
+                        '>' + s.name + '<br><span style="font-size:10px;color:#999;">' + s.description + '</span></button>'
+                    ).join('');
+                }
+                var _esn = document.getElementById('sim-scene-name'); if (_esn) _esn.textContent = data.current_scene || '自定义';
+            } catch (e) {}
+        }
+
+        async function applySimScene(sceneName) {
+            try {
+                const allBtns = document.querySelectorAll('#sim-scene-buttons button');
+                allBtns.forEach(b => {
+                    b.style.background = '#f0f7f4';
+                    b.style.color = '#2d5a40';
+                    b.style.fontWeight = 'normal';
+                    b.style.borderColor = '#a4e4ce';
+                });
+                
+                // 根据场景名找到被点击的按钮并高亮
+                const clickedBtn = Array.from(allBtns).find(b => b.textContent.includes(sceneName));
+                if (clickedBtn) {
+                    clickedBtn.style.background = '#2d5a40';
+                    clickedBtn.style.color = 'white';
+                    clickedBtn.style.fontWeight = 'bold';
+                    clickedBtn.style.borderColor = '#2d5a40';
+                }
+                
+                await fetch('/api/simulation/scene', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({scene: sceneName})
+                });
+                refreshData();
+                customAlert('已切换到场景：' + sceneName);
+            } catch (e) {       
+                console.error('场景切换失败:', e);
+                customAlert('场景切换失败: ' + (e.message || '未知错误'));
+            }
+        }
+
+        async function applyCustomSimulation() {
+            const data = {
+                power: parseFloat(document.getElementById('sim-power').value) || 150,
+                voltage: parseFloat(document.getElementById('sim-voltage').value) || 220,
+                current: parseFloat(document.getElementById('sim-current').value) || 680,
+                temperature: parseFloat(document.getElementById('sim-temp').value) || 25,
+                humidity: parseFloat(document.getElementById('sim-humidity').value) || 55,
+                led: document.getElementById('sim-led').value,
+                buzzer: document.getElementById('sim-buzzer').value === 'true',
+                switch_on: document.getElementById('sim-switch').value === 'true'
+            };
+            try {
+                await fetch('/api/simulation/custom', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                refreshData();
+            } catch (e) {
+                console.error('自定义模拟失败:', e);
+            }
+        }
+
+        async function checkSimulationStatus() {
+            try {
+                const resp = await fetch('/api/simulation/status');
+                const data = await resp.json();
+                simulationEnabled = data.enabled;
+                updateSimulationUI();
+                if (simulationEnabled) loadSimScenes();
+            } catch (e) {}
+        }
+
+        function updateSimulationUI() {
+            const bar = document.getElementById('simulation-bar');
+            const toggleBtn = document.getElementById('sim-toggle-btn');
+            const scenes = document.getElementById('sim-scenes');
+            
+            if (bar) bar.style.display = simulationEnabled ? 'block' : 'none';
+            if (toggleBtn) {
+                toggleBtn.textContent = simulationEnabled ? '关闭模拟模式' : '开启模拟模式';
+                toggleBtn.style.background = simulationEnabled ? '#ff6b6b' : '#7ba890';
+            }
+            if (scenes) scenes.style.display = simulationEnabled ? 'block' : 'none';
+        }
+
+        function updateLEDBuzzer(data) {
+            const ledColor = data.led || data.led_color || 'green';
+            const buzzerOn = data.buzzer === true || data.buzzer === 'true';
+            
+            const indicator = document.getElementById('led-indicator');
+            const ledText = document.getElementById('led-text');
+            const buzzerIcon = document.getElementById('buzzer-icon');
+            const buzzerText = document.getElementById('buzzer-text');
+            const row = document.getElementById('led-buzzer-row');
+            
+            if (!row) return;
+            row.style.display = 'flex';
+            
+            const colorMap = {
+                'green': { color: '#4caf50', text: '正常', shadow: 'rgba(76,175,80,0.6)' },
+                'yellow': { color: '#ffc107', text: '预警', shadow: 'rgba(255,193,7,0.6)' },
+                'red': { color: '#f44336', text: '告警', shadow: 'rgba(244,67,54,0.6)' },
+                'off': { color: '#aaa', text: '熄灭', shadow: 'rgba(170,170,170,0.3)' }
+            };
+            const cm = colorMap[ledColor] || colorMap['off'];
+            if (indicator) {
+                indicator.style.background = cm.color;
+                indicator.style.boxShadow = '0 0 12px ' + cm.shadow;
+            }
+            if (ledText) {
+                ledText.textContent = cm.text;
+                ledText.style.color = cm.color;
+            }
+            
+            if (buzzerIcon) buzzerIcon.textContent = buzzerOn ? '🔊' : '🔇';
+            if (buzzerText) {
+                buzzerText.textContent = buzzerOn ? '鸣响中' : '静音';
+                buzzerText.style.color = buzzerOn ? '#f44336' : '#999';
+            }
+        }
+
+        async function loadDevices() {
+            const list = document.getElementById('device-list');
+            if (!list) return;
+            list.innerHTML = '<div class="loading">加载中...</div>';
+            try {
+                const titleEl = document.getElementById('device-list-title');
+                if (titleEl && currentUsername) {
+                    titleEl.textContent = currentUsername + '的设备';
+                }
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                const res = await fetch('/api/devices', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
+
+                if (devices.length === 0) {
+                    list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无设备</div>';
+                    return;
+                }
+
+                list.innerHTML = devices.map(d => {
+                    const sensorHtml = (d.temperature_c != null || d.humidity_percent != null)
+                        ? '<div style="font-size:11px;color:#7ba890;margin-top:4px;">' +
+                          (d.temperature_c != null ? '🌡️ ' + d.temperature_c + '℃ ' : '') +
+                          (d.humidity_percent != null ? '💧 ' + d.humidity_percent + '%' : '') +
+                          '</div>'
+                        : '';
+                    return '<div class="device-card">' +
+                        '<div class="device-info"><h4>' + d.device_name + '</h4></div>' +
+                        '<span class="device-status ' + (d.online ? 'online' : 'offline') + '">' + (d.online ? '在线' : '离线') + '</span>' +
+                        '<span style="font-size:11px;color:#7ba890;margin-left:8px;">分组: ' + (d.group || '未分组') + '</span>' +
+                        sensorHtml +
+                        '<span class="device-id-text">设备ID: ' + d.device_id + '</span>' +
+                        '</div>';
+                }).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="loading" style="color:#c45a5a;">加载失败，下拉刷新重试</div>';
+            }
+        }
+
+    function showAddDeviceForm() {
+            document.getElementById('device-actions').style.display = 'none';
+            document.getElementById('add-device-card').style.display = 'block';
+            document.getElementById('delete-device-card').style.display = 'none';
+            document.getElementById('modify-select-card').style.display = 'none';
+            document.getElementById('modify-device-card').style.display = 'none';
+        }
+
+        function cancelAddDevice() {
+            document.getElementById('add-device-card').style.display = 'none';
+            document.getElementById('device-actions').style.display = 'block';
+            document.getElementById('new-device-id').value = '';
+            document.getElementById('new-device-name').value = '';
+            document.getElementById('new-device-group').value = '';
+        }
+
+        async function confirmAddDevice() {
+            const deviceId = document.getElementById('new-device-id').value.trim();
+            const deviceName = document.getElementById('new-device-name').value.trim();
+            const deviceGroup = document.getElementById('new-device-group').value.trim();
+
+            if (!deviceId || !deviceName) {
+                await customAlert('请填写完整信息');
+                return;
+            }
+
+            if (!await customConfirm('确认添加设备「' + deviceName + '」吗？')) return;
+
+            const btn = document.querySelector('#add-device-card .btn');
+            const origText = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = '添加中...'; }
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 20000);
+                const res = await fetch('/api/devices/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId, name: deviceName, group: deviceGroup }),
+                    signal: controller.signal,
+                    credentials: 'include'
+                });
+                clearTimeout(timeoutId);
+                const data = await res.json();
+
+                if (data.success) {
+                    await customAlert('添加成功！设备已生效。');
+                    cancelAddDevice();
+                    loadDevices();
+                } else if (data.need_login) {
+                    await customAlert('登录已过期，请重新登录');
+                    location.reload();
+                } else {
+                    await customAlert('添加失败: ' + (data.message || data.error || '未知错误'));
+                }
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    await customAlert('请求超时，请重试');
+                } else {
+                    await customAlert('网络错误，请检查连接后重试');
+                }
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = origText; }
+            }
+        }
+
+        function showPairDeviceForm() {
+            document.getElementById('device-actions').style.display = 'none';
+            document.getElementById('add-device-card').style.display = 'none';
+            document.getElementById('delete-device-card').style.display = 'none';
+            document.getElementById('modify-device-card').style.display = 'none';
+            document.getElementById('modify-select-card').style.display = 'none';
+            document.getElementById('pair-device-card').style.display = 'block';
+            
+            populatePairSelects();
+        }
+
+        function cancelPairDevices() {
+            document.getElementById('pair-device-card').style.display = 'none';
+            document.getElementById('device-actions').style.display = 'block';
+        }
+
+        async function populatePairSelects() {
+            try {
+                const res = await fetch('/api/devices');
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
+                
+                const socketSelect = document.getElementById('pair-socket-select');
+                const boardSelect = document.getElementById('pair-board-select');
+                
+                socketSelect.innerHTML = '<option value="">请选择插座</option>';
+                boardSelect.innerHTML = '<option value="">请选择开发板</option>';
+                
+                for (const d of devices) {
+                    const option = document.createElement('option');
+                    option.value = d.device_id;
+                    option.textContent = d.device_name + ' (' + d.owner + ')';
+
+                    if (d.is_sensor) {
+                        boardSelect.appendChild(option.cloneNode(true));
+                    } else {
+                        socketSelect.appendChild(option);
+                    }
+                }
+            } catch (e) {
+                console.error('加载设备列表失败:', e);
+            }
+        }
+
+        async function confirmPairDevices() {
+            const socketId = document.getElementById('pair-socket-select').value;
+            const boardId = document.getElementById('pair-board-select').value;
+
+            if (!socketId || !boardId) {
+                await customAlert('请选择插座和开发板');
+                return;
+            }
+
+            if (!await customConfirm('确认将插座与开发板配对吗？配对后开发板数据将合并到插座显示。')) return;
+
+            try {
+                const res = await fetch('/api/devices/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ socket_device_id: socketId, board_device_id: boardId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    await customAlert('配对成功！开发板数据将合并到插座显示。');
+                    cancelPairDevices();
+                    loadDevices();
+                } else {
+                    await customAlert('配对失败: ' + data.message);
+                }
+            } catch (e) {
+                await customAlert('网络错误');
+            }
+        }
+
+        async function showDeleteDevicePage() {
+            document.getElementById('device-actions').style.display = 'none';
+            document.getElementById('add-device-card').style.display = 'none';
+            document.getElementById('modify-select-card').style.display = 'none';
+            document.getElementById('modify-device-card').style.display = 'none';
+            const card = document.getElementById('delete-device-card');
+            const list = document.getElementById('delete-device-list');
+            card.style.display = 'block';
+            list.innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const res = await fetch('/api/devices');
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
+
+                if (devices.length === 0) {
+                    list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无设备</div>';
+                    return;
+                }
+
+                list.innerHTML = devices.map(d =>
+                    '<div class="device-card" style="cursor:pointer;" onclick="selectDeleteDevice(\'' + d.device_id + '\',\'' + d.device_name.replace(/'/g, "\\'") + '\')">' +
+                    '<div class="device-info"><h4>' + d.device_name + '</h4></div>' +
+                    '<span class="device-status ' + (d.online ? 'online' : 'offline') + '">' + (d.online ? '在线' : '离线') + '</span>' +
+                    '<div style="color:#b8860b;font-size:11px;margin-top:4px;">设备ID: ' + d.device_id + '</div>' +
+                    '</div>'
+                ).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="loading">加载失败</div>';
+            }
+        }
+
+        function cancelDeleteDevice() {
+            document.getElementById('delete-device-card').style.display = 'none';
+            document.getElementById('device-actions').style.display = 'block';
+        }
+
+        async function selectDeleteDevice(deviceId, deviceName) {
+            if (!await customConfirm('确认删除设备「' + deviceName + '」吗？')) return;
+            try {
+                const res = await fetch('/api/devices/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await customAlert('删除成功');
+                    cancelDeleteDevice();
+                    loadDevices();
+                } else {
+                    await customAlert('删除失败: ' + data.message);
+                }
+            } catch (e) {
+                await customAlert('网络错误');
+            }
+        }
+
+        async function showModifyDevicePage() {
+            document.getElementById('device-actions').style.display = 'none';
+            document.getElementById('add-device-card').style.display = 'none';
+            document.getElementById('delete-device-card').style.display = 'none';
+            document.getElementById('modify-device-card').style.display = 'none';
+            const card = document.getElementById('modify-select-card');
+            const list = document.getElementById('modify-device-list');
+            card.style.display = 'block';
+            list.innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const res = await fetch('/api/devices');
+                const result = await res.json();
+                const devices = Array.isArray(result) ? result : (result.devices || []);
+
+                if (devices.length === 0) {
+                    list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无设备</div>';
+                    return;
+                }
+
+                list.innerHTML = devices.map(d =>
+                    '<div class="device-card" style="cursor:pointer;" onclick="selectModifyDevice(\'' + d.device_id + '\',\'' + d.device_name.replace(/'/g, "\\'") + '\')">' +
+                    '<div class="device-info"><h4>' + d.device_name + '</h4></div>' +
+                    '<span class="device-status ' + (d.online ? 'online' : 'offline') + '">' + (d.online ? '在线' : '离线') + '</span>' +
+                    '<div style="color:#b8860b;font-size:11px;margin-top:4px;">设备ID: ' + d.device_id + '</div>' +
+                    '</div>'
+                ).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="loading">加载失败</div>';
+            }
+        }
+
+        function selectModifyDevice(deviceId, deviceName) {
+            document.getElementById('modify-select-card').style.display = 'none';
+            document.getElementById('modify-device-card').style.display = 'block';
+            document.getElementById('modify-device-id').value = deviceId;
+            document.getElementById('modify-device-name').value = deviceName;
+        }
+
+        function cancelModifyDevice() {
+            document.getElementById('modify-device-card').style.display = 'none';
+            document.getElementById('modify-select-card').style.display = 'none';
+            document.getElementById('device-actions').style.display = 'block';
+        }
+
+        async function confirmModifyDevice() {
+            const deviceId = document.getElementById('modify-device-id').value.trim();
+            const newName = document.getElementById('modify-device-name').value.trim();
+            const newGroup = document.getElementById('modify-device-group').value.trim();
+
+            if (!newName) {
+                await customAlert('请填写设备名称');
+                return;
+            }
+
+            if (!await customConfirm('确认修改设备信息吗？')) return;
+
+            try {
+                const res = await fetch('/api/devices/modify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId, name: newName, group: newGroup })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await customAlert('修改成功');
+                    cancelModifyDevice();
+                    loadDevices();
+                } else {
+                    await customAlert('修改失败: ' + data.message);
+                }
+            } catch (e) {
+                await customAlert('网络错误');
+            }
+        }
+
+        async function checkLogin() {
+            try {
+                const res = await fetch('/api/current_user', { credentials: 'include' });
+                const data = await res.json();
+                if (data.logged_in) {
+                    showApp(data.username);
+                } else {
+                    showLoginPage();
+                }
+            } catch (e) {
+                showLoginPage();
+            }
+        }
+
+        function showApp(username) {
+            currentUsername = username || '';
+            var _el = document.getElementById('login-page'); if (_el) _el.style.display = 'none';
+            _el = document.getElementById('main-app'); if (_el) _el.style.display = 'block';
+            _el = document.getElementById('tab-realtime'); if (_el) _el.style.display = 'block';
+            _el = document.getElementById('realtime-content'); if (_el) _el.style.display = 'block';
+            _el = document.getElementById('realtime-loading'); if (_el) _el.style.display = 'block';
+            refreshData();
+            setInterval(refreshData, 5000);
+            pollNotifications();
+            setInterval(pollNotifications, 30000);
+            checkSimulationStatus();
+            loadMemos();
+        }
+
+        async function pollNotifications() {
+            try {
+                const res = await fetch('/api/notifications/unread_count');
+                const data = await res.json();
+                const badge = document.getElementById('notif-badge');
+                if (!badge) return;
+                const count = data.count || 0;
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (e) {}
+        }
+
+        async function toggleNotificationPanel() {
+            const panel = document.getElementById('notif-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                await fetch('/api/notifications/read_all', { method: 'POST' }).catch(() => {});
+                const badge = document.getElementById('notif-badge');
+                if (badge) badge.style.display = 'none';
+                await loadNotifications();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        async function loadNotifications() {
+            const list = document.getElementById('notif-list');
+            list.innerHTML = '<div style="padding:12px;text-align:center;color:#7ba890;font-size:13px;">加载中...</div>';
+            try {
+                const res = await fetch('/api/notifications');
+                const data = await res.json();
+                const notifs = data.notifications || [];
+                if (notifs.length === 0) {
+                    list.innerHTML = '<div style="padding:20px;text-align:center;color:#7ba890;font-size:13px;">暂无通知</div>';
+                    return;
+                }
+                list.innerHTML = notifs.map(n =>
+                    '<div class="notif-item" style="padding:10px 12px;border-bottom:1px solid #eee;">'
+                    + '<div class="notif-title" style="font-size:13px;font-weight:bold;color:#2d5a40;">' + (n.title || '') + '</div>'
+                    + '<div class="notif-msg" style="font-size:12px;color:#555;margin-top:4px;line-height:1.4;">' + (n.message || '') + '</div>'
+                    + '<div class="notif-time" style="font-size:11px;color:#999;margin-top:4px;">' + (n.created_at || '') + '</div>'
+                    + '</div>'
+                ).join('');
+            } catch (e) {
+                list.innerHTML = '<div style="padding:12px;text-align:center;color:#c45a5a;font-size:13px;">加载失败</div>';
+            }
+        }
+
+        async function markAllRead() {
+            try {
+                await fetch('/api/notifications/read_all', { method: 'POST' });
+                const badge = document.getElementById('notif-badge');
+                if (badge) badge.style.display = 'none';
+                await loadNotifications();
+            } catch (e) {}
+        }
+
+        function showLoginPage() {
+            document.getElementById('login-page').style.display = 'flex';
+            document.getElementById('main-app').style.display = 'none';
+        }
+
+        let verifyCodeTimer = null;
+
+        function resetVerifyCodeButton() {
+            const btn = document.getElementById('send-code-btn');
+            if (btn) {
+                btn.textContent = '获取验证码';
+                btn.disabled = false;
+            }
+            if (verifyCodeTimer) {
+                clearInterval(verifyCodeTimer);
+                verifyCodeTimer = null;
+            }
+        }
+
+        function showRegisterForm() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+            document.getElementById('login-error').textContent = '';
+            resetVerifyCodeButton();
+        }
+
+        function showLoginForm() {
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('login-error').textContent = '';
+            resetVerifyCodeButton();
+        }
+
+        async function sendVerifyCode() {
+            const phone = document.getElementById('register-phone').value.trim();
+            if (!phone) {
+                document.getElementById('login-error').textContent = '请先输入手机号';
+                return;
+            }
+            const btn = document.getElementById('send-code-btn');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/send_code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    // 模拟模式：直接显示验证码。上线后改为"验证码已发送到手机"
+                    await customAlert('您的验证码是：' + data.code + '（请记住此验证码，30秒后重新发送）');
+                    let count = 30;
+                    btn.textContent = count + '秒后重发';
+                    resetVerifyCodeButton();
+                    verifyCodeTimer = setInterval(() => {
+                        count--;
+                        if (count <= 0) {
+                            resetVerifyCodeButton();
+                        } else {
+                            btn.textContent = count + '秒后重发';
+                        }
+                    }, 1000);
+                } else {
+                    document.getElementById('login-error').textContent = data.message;
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                document.getElementById('login-error').textContent = '网络错误: ' + e.message;
+                btn.disabled = false;
+            }
+        }
+
+        async function doLogin() {
+            const phone = document.getElementById('login-phone').value.trim();
+            const password = document.getElementById('login-password').value;
+            if (!phone || !password) {
+                document.getElementById('login-error').textContent = '请输入手机号和密码';
+                return;
+            }
+            const loginBtn = document.querySelector('#login-form button');
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, password }),
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showApp(data.username);
+                } else {
+                    document.getElementById('login-error').textContent = data.message;
+                }
+            } catch (e) {
+                document.getElementById('login-error').textContent = '网络连接失败，请检查网络后重试。如使用手机流量，请尝试切换WiFi；如在中国大陆，可能需要VPN访问Render。错误详情: ' + (e.message || e.toString());
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            }
+        }
+
+        async function doRegister() {
+            const phone = document.getElementById('register-phone').value.trim();
+            const nickname = document.getElementById('register-nickname').value.trim();
+            const code = document.getElementById('register-code').value.trim();
+            const password = document.getElementById('register-password').value;
+            const password2 = document.getElementById('register-password2').value;
+            if (!phone || !nickname || !code || !password) {
+                document.getElementById('login-error').textContent = '请填写所有字段';
+                return;
+            }
+            if (password !== password2) {
+                document.getElementById('login-error').textContent = '两次密码不一致';
+                return;
+            }
+            const regBtn = document.querySelector('#register-form button');
+            regBtn.disabled = true;
+            regBtn.textContent = '注册中...';
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+
+                    body: JSON.stringify({ phone, nickname, code, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await customAlert('注册成功，请登录');
+                    document.getElementById('register-phone').value = '';
+                    document.getElementById('register-code').value = '';
+                    document.getElementById('register-nickname').value = '';
+                    document.getElementById('register-password').value = '';
+                    document.getElementById('register-password2').value = '';
+                    showLoginForm();
+                } else {
+                    document.getElementById('login-error').textContent = data.message;
+                }
+            } catch (e) {
+                document.getElementById('login-error').textContent = '网络连接失败，请检查网络后重试。错误详情: ' + (e.message || e.toString());
+            } finally {
+                regBtn.disabled = false;
+                regBtn.textContent = '注册';
+            }
+        }
+
+        async function doLogout() {
+            if (!await customConfirm('确认退出登录吗？')) return;
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                currentUsername = '';
+                currentDevice = null;
+                selectedDeviceId = null;
+                allDevices = [];
+                currentSpaceId = null;
+                currentSpaceIsCreator = false;
+                showLoginPage();
+                document.getElementById('login-phone').value = '';
+                document.getElementById('login-password').value = '';
+            } catch (e) {}
+        }
+
+        // ================== 浏览器推送通知 (Web Push) ==================
+
+        let swRegistration = null;
+        let currentPushSubscription = null;
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function registerServiceWorker() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                console.log('当前浏览器不支持推送通知');
+                updatePushButton('unsupported');
+                return false;
+            }
+
+            try {
+                swRegistration = await navigator.serviceWorker.register('/sw.js?v=3');
+                console.log('Service Worker 注册成功:', swRegistration.scope);
+
+                // 检查现有订阅
+                currentPushSubscription = await swRegistration.pushManager.getSubscription();
+                updatePushButton(currentPushSubscription ? 'subscribed' : 'unsubscribed');
+                return true;
+            } catch (error) {
+                console.error('Service Worker 注册失败:', error);
+                updatePushButton('unsupported');
+                return false;
+            }
+        }
+
+        function updatePushButton(state) {
+            const btn = document.getElementById('push-toggle-btn');
+            if (!btn) return;
+
+            if (state === 'subscribed') {
+                btn.textContent = '🔔 已开启';
+                btn.style.background = '#5a8a6e';
+            } else if (state === 'unsupported') {
+                btn.textContent = '🔕 不支持';
+                btn.style.background = '#999';
+                btn.style.pointerEvents = 'none';
+            } else {
+                btn.textContent = '🔔 开启推送';
+                btn.style.background = '#7ba890';
+            }
+        }
+
+        async function subscribeToPush() {
+            if (!swRegistration) {
+                customAlert('浏览器不支持推送通知');
+                return;
+            }
+
+            try {
+                // 请求通知权限
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    customAlert('需要通知权限才能接收推送消息');
+                    return;
+                }
+
+                // 获取 VAPID 公钥
+                const resp = await fetch('/api/push/vapid_public_key', { credentials: 'include' });
+                const data = await resp.json();
+                const publicKey = data.public_key;
+
+                if (!publicKey) {
+                    customAlert('获取推送密钥失败，请刷新页面重试');
+                    return;
+                }
+
+                // 订阅推送
+                const subscription = await swRegistration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey),     
+                });
+
+                // 发送到后端保存
+                const saveResp = await fetch('/api/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ subscription: subscription.toJSON() }),
+                });
+                const saveData = await saveResp.json();
+
+                if (saveData.success) {
+                    currentPushSubscription = subscription;
+                    updatePushButton('subscribed');
+                    customAlert('推送通知已开启！你可以关闭网页后仍能收到提醒。');
+                    // 发送测试推送验证
+                    fetch('/api/push/send_test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' }).catch(() => {});
+                } else {
+                    customAlert('订阅失败：' + (saveData.message || '请先登录后再开启推送通知。注意：推送需要HTTPS（已支持），且浏览器必须支持Web Push（Chrome/Edge推荐）'));
+                }
+            } catch (error) {
+                console.error('订阅推送失败:', error);
+                customAlert('订阅推送失败：' + error.message + '。请确认：1) 使用Chrome/Edge浏览器 2) 已允许通知权限 3) 通过HTTPS访问');
+            }
+        }
+
+        async function unsubscribeFromPush() {
+            if (!currentPushSubscription) return;
+
+            try {
+                await currentPushSubscription.unsubscribe();
+                await fetch('/api/push/unsubscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ endpoint: currentPushSubscription.endpoint }),
+                });
+                currentPushSubscription = null;
+                updatePushButton('unsubscribed');
+                customAlert('已关闭推送通知');
+            } catch (error) {
+                console.error('取消订阅失败:', error);
+                customAlert('取消订阅失败');
+            }
+        }
+
+        async function togglePushSubscription() {
+            if (!swRegistration) {
+                customAlert('当前浏览器不支持推送通知');
+                return;
+            }
+
+            // 从 SW 恢复订阅状态（防止页面刷新后变量丢失）
+            if (!currentPushSubscription && swRegistration) {
+                try {
+                    currentPushSubscription = await swRegistration.pushManager.getSubscription();
+                    if (currentPushSubscription) {
+                        updatePushButton('subscribed');
+                    }
+                } catch(e) {}
+            }
+            if (!currentPushSubscription) {
+                await subscribeToPush();
+            } else {
+                if (await customConfirm('确定要关闭推送通知吗？')) {
+                    await unsubscribeFromPush();
+                }
+            }
+        }
+
+        async function sendTestPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                customAlert('当前浏览器不支持 Web Push 推送通知。\n建议：使用 Chrome/Edge 浏览器，或电脑端访问测试。\n国产手机浏览器（如 OPPO/vivo/华为自带浏览器）通常不支持此功能。');
+                return;
+            }
+            
+            // 先尝试从 SW 恢复订阅状态
+            if (!currentPushSubscription && swRegistration) {
+                try {
+                    currentPushSubscription = await swRegistration.pushManager.getSubscription();
+                    if (currentPushSubscription) {
+                        updatePushButton('subscribed');
+                    }
+                } catch(e) {}
+            }
+            
+            if (!currentPushSubscription) {
+                customAlert('尚未开启推送通知。请先点击"🔔 开启推送"按钮，在弹出的权限请求中选择"允许"，按钮变为"已开启"后再测试。');
+                return;
+            }
+            try {
+                const controller = new AbortController();
+            const pushTimeoutId = setTimeout(() => controller.abort(), 8000);
+            const resp = await fetch('/api/push/send_test', { method: 'POST', credentials: 'include', signal: controller.signal });
+            clearTimeout(pushTimeoutId);
+                const data = await resp.json();
+                if (data.success) {
+                    customAlert('测试推送已发送，请查看系统通知！如果浏览器处于前台，通知可能不会弹出，可以最小化浏览器后再测试。');
+                } else {
+                    customAlert('发送失败：' + (data.message || JSON.stringify(data.result)));
+                }
+            } catch (error) {
+                customAlert('发送失败：' + error.message);
+            }
+        }
+
+        // ============ 备忘录函数 ============
+        async function loadMemos() {
+            const list = document.getElementById('memo-list');
+            if (!list) return;
+            list.innerHTML = '<div style="text-align:center;padding:10px;color:#999;font-size:12px;">加载中...</div>';
+            try {
+                const resp = await fetch('/api/memos');
+                const data = await resp.json();
+                const memos = data.memos || [];
+                if (memos.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:15px;color:#999;font-size:12px;">暂无备忘录，在上方添加吧~</div>';
+                    return;
+                }
+                let html = '';
+                memos.forEach(function(m) {
+                    const status = m.notified ? '已提醒' : '待提醒';
+                    const statusColor = m.notified ? '#999' : '#7ba890';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;">';
+                    html += '<div style="flex:1;font-size:12px;">';
+                    html += '<span style="color:#2d5a40;font-weight:bold;">' + m.memo_date + ' ' + m.memo_time + '</span><br>';
+                    html += '<span style="color:#555;">' + m.content + '</span>';
+                    html += '</div>';
+                    html += '<div style="display:flex;align-items:center;gap:6px;">';
+                    html += '<span style="font-size:11px;color:' + statusColor + ';">' + status + '</span>';
+                    html += '<button onclick="deleteMemo(' + m.id + ')" style="background:none;border:1px solid #e0a0a0;color:#c45a5a;padding:2px 8px;border-radius:10px;cursor:pointer;font-size:10px;">删除</button>';
+                    html += '</div></div>';
+                });
+                list.innerHTML = html;
+            } catch (e) {
+                list.innerHTML = '<div style="text-align:center;padding:10px;color:#c45a5a;font-size:12px;">加载失败</div>';
+            }
+        }
+
+        async function addMemo(event) {
+            const btn = event && event.target ? event.target : document.querySelector('button[onclick*="addMemo"]');
+            if (btn) { btn.disabled = true; btn.textContent = '添加中...'; }
+            const date = document.getElementById('memo-date').value;
+            const time = document.getElementById('memo-time').value;
+            const content = document.getElementById('memo-content').value.trim();
+            if (!date || !content) {
+                if (btn) { btn.disabled = false; btn.textContent = '添加'; }
+                customAlert('请填写日期和备忘录内容');
+                return;
+            }
+            try {
+                const resp = await fetch('/api/memos/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ memo_date: date, memo_time: time, content: content })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    document.getElementById('memo-content').value = '';
+                    loadMemos();
+                    customAlert('备忘录已添加：' + date + ' ' + time + ' 提醒你' + String.fromCharCode(12300) + content + String.fromCharCode(12301));
+                } else {
+                    customAlert(data.message || '添加失败');
+                }
+            } catch (e) {
+                customAlert('添加失败：' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '添加'; }
+            }
+        }
+
+        async function deleteMemo(id) {
+            if (!await customConfirm('确认删除此备忘录吗？')) return;
+            try {
+                const resp = await fetch('/api/memos/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    loadMemos();
+                } else {
+                    customAlert(data.message || '删除失败');
+                }
+            } catch (e) {
+                customAlert('网络错误');
+            }
+        }
+
+        // 设置默认日期为今天
+        setTimeout(function() {
+            const dateInput = document.getElementById('memo-date');
+            if (dateInput) {
+                const today = new Date();
+                dateInput.value = today.getFullYear() + '-' +
+                    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(today.getDate()).padStart(2, '0');
+            }
+        }, 500);
+
+        // 预加载：后台加载非关键数据（预热缓存）
+        setTimeout(() => {
+            if (currentUsername) {
+                fetch('/api/today').catch(() => {});
+                fetch('/api/carbon/today').catch(() => {});
+            }
+        }, 2000);
+        // ===== Start application with debug =====
+        var _dbg2 = document.getElementById('debug-banner');
+        try {
+            if (_dbg2) { _dbg2.textContent = '[DEBUG] Calling checkLogin()...'; _dbg2.style.background = '#ffe0b0'; }
+            checkLogin();
+            if (_dbg2) { _dbg2.textContent = '[DEBUG] checkLogin() completed. Calling registerServiceWorker()...'; }
+            registerServiceWorker();
+            if (_dbg2) { _dbg2.textContent = '[DEBUG] All init complete! Page should be functional.'; }
+            setTimeout(function() {
+                var db = document.getElementById('debug-banner');
+                if (db) { db.style.display = 'none'; }
+            }, 3000);
+        } catch(e) {
+            if (_dbg2) { _dbg2.textContent = '[FATAL] Init error: ' + e.message; _dbg2.style.background = '#ff0000'; _dbg2.style.color = '#fff'; }
+        }
+    </script>
+</body>
+</html>

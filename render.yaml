@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ecowise
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn web_server:app --bind 0.0.0.0:$PORT --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: CLEAR_DATA_ON_START
+        value: "false"

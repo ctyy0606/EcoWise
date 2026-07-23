@@ -1,0 +1,7 @@
+Flask>=2.0.0
+gunicorn>=20.0.0
+tuya-connector-python==0.1.2
+requests>=2.25.0
+pywebpush>=2.0.0
+Pillow>=9.0.0
+cryptography>=3.0.0
