@@ -230,9 +230,8 @@ def get_device_data(device_id: str) -> Dict:
     if info_success and info.get("online", False):
         is_online = True
         print(f"[device_client] 设备 {device_id} 设备信息API返回在线")
-    elif not is_online and (result or status_success):
-        is_online = True
-        print(f"[device_client] 设备 {device_id} DP状态可用，修正在线状态为在线")
+    elif not is_online:
+        print(f"[device_client] 设备 {device_id} 设备信息API返回离线，以API为准")
 
     print(f"[device_client] 设备 {device_id} 最终在线状态: is_online={is_online}, info_success={info_success}, status_success={status_success}, dp_count={len(result)}")
 

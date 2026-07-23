@@ -1052,25 +1052,47 @@ def api_member_alias():
 @app.route('/api/my_bill')
 @login_required
 def api_my_bill():
-    """获取当前用户自己设备的电费明细（按设备）"""
+    """获取当前用户自己设备的电费明细（按设备），使用 energy_records 计算月度用电"""
     try:
         devices = _get_user_devices()
         import config
+        from energy_history import _get_db
         MIN_KWH_THRESHOLD = 0.01
+        today = datetime.now().strftime("%Y-%m-%d")
+        year_month = datetime.now().strftime("%Y-%m")
         device_bills = []
         total_kwh = 0.0
         for dev in devices:
             if "error" in dev:
                 continue
-            kwh = dev.get("energy_kwh")
-            if kwh is None:
+            device_id = dev.get("device_id", "")
+            name = dev.get("device_name", dev.get("device_id", "未知"))
+            
+            # 从 energy_records 表获取本月用电总量
+            conn = _get_db()
+            try:
+                rows = conn.execute(
+                    "SELECT energy_wh, record_date FROM energy_records "
+                    "WHERE device_id=? AND record_date LIKE ? ORDER BY record_date ASC, recorded_at ASC",
+                    (device_id, year_month + '%'),
+                ).fetchall()
+            finally:
+                conn.close()
+            
+            if rows:
+                month_first_wh = rows[0][0]
+                month_last_wh = rows[-1][0]
+                kwh_raw = (month_last_wh - month_first_wh) / 1000.0
+                kwh = max(0, kwh_raw)
+            else:
                 kwh = 0
+            
             if kwh < MIN_KWH_THRESHOLD:
                 kwh = 0.0
             yuan = kwh * config.ELECTRICITY_PRICE_PER_KWH
             device_bills.append({
-                "name": dev.get("device_name", dev.get("device_id", "未知")),
-                "device_id": dev.get("device_id", ""),
+                "name": name,
+                "device_id": device_id,
                 "kwh": round(kwh, 4),
                 "yuan": round(yuan, 2),
             })

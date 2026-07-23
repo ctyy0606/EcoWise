@@ -1067,6 +1067,7 @@
         let selectedDeviceId = null;
         let currentUsername = '';
         let isRefreshing = false;
+        let refreshAbortController = null;
 
         // 前端数据缓存，避免 tab 之间反复请求
         const dataCache = {
@@ -1143,7 +1144,12 @@
         }
 
         async function refreshData(showLoading) {
-            if (isRefreshing) return;
+            // 用户手动刷新（showLoading=true）不受请求锁限制，自动轮询（showLoading=false/undefined）受锁限制
+            if (!showLoading && isRefreshing) return;
+            if (showLoading) {
+                // 用户主动刷新：取消之前的自动轮询请求
+                if (refreshAbortController) refreshAbortController.abort();
+            }
             isRefreshing = true;
             const loadingEl = document.getElementById('realtime-loading');
             const contentEl = document.getElementById('realtime-content');
@@ -1156,6 +1162,7 @@
             }
             try {
                 const controller = new AbortController();
+                refreshAbortController = controller;
                 const timeoutId = setTimeout(() => controller.abort(), 15000);
                 const res = await fetch('/api/devices', { signal: controller.signal });
                 clearTimeout(timeoutId);
@@ -1264,6 +1271,7 @@
                 console.error('refreshData error:', e.message);
             } finally {
                 isRefreshing = false;
+                refreshAbortController = null;
             }
         }
 
@@ -2133,7 +2141,8 @@
                 await fetch('/api/user/location', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(userLocation)
+                    body: JSON.stringify(userLocation),
+                    credentials: 'include'
                 });
                 customAlert('位置授权成功！现在AI可以查询你所在城市的天气了~');
                 const locBtn = document.getElementById('location-btn');
@@ -3238,8 +3247,19 @@
                 customAlert('当前浏览器不支持 Web Push 推送通知。\n建议：使用 Chrome/Edge 浏览器，或电脑端访问测试。\n国产手机浏览器（如 OPPO/vivo/华为自带浏览器）通常不支持此功能。');
                 return;
             }
+            
+            // 先尝试从 SW 恢复订阅状态
+            if (!currentPushSubscription && swRegistration) {
+                try {
+                    currentPushSubscription = await swRegistration.pushManager.getSubscription();
+                    if (currentPushSubscription) {
+                        updatePushButton('subscribed');
+                    }
+                } catch(e) {}
+            }
+            
             if (!currentPushSubscription) {
-                customAlert('你还没有开启推送通知，请先点击"🔔 开启推送"按钮并允许通知权限。');
+                customAlert('尚未开启推送通知。请先点击"🔔 开启推送"按钮，在弹出的权限请求中选择"允许"，按钮变为"已开启"后再测试。');
                 return;
             }
             try {
