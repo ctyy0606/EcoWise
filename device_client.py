@@ -6,6 +6,11 @@ EcoWise 宿舍助理 - 涂鸦云 API 封装
 from typing import Optional, Dict
 from datetime import datetime
 import time
+import os
+
+# 涂鸦 API 走阿里云代理中转（解决 Render 美国服务器跨区域访问问题）
+os.environ["HTTPS_PROXY"] = "http://101.133.174.240:8888"
+os.environ["HTTP_PROXY"] = "http://101.133.174.240:8888"
 
 from tuya_connector import TuyaOpenAPI
 
