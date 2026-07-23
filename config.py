@@ -46,18 +46,27 @@ DEVICE_PAIRINGS: Dict[str, str] = {
     "6c3780ebe5a98ff4a0n5rd": "6c2d79c2bc1d87f3de5ako",
 }
 
-# 网页端添加的设备会写入 devices.json,启动时自动合并到上面的 DEVICES
+# 网页端添加的设备会写入 data/devices.json,启动时自动合并到上面的 DEVICES
 import json as _json
 import os as _os
-_TEMP_DIR = _os.path.join(_os.environ.get("TEMP", _os.environ.get("TMP", _os.path.dirname(__file__))), "Ecowise")
-if not _os.path.exists(_TEMP_DIR):
-    _os.makedirs(_TEMP_DIR, exist_ok=True)
-_DEVICES_JSON = _os.path.join(_TEMP_DIR, "devices.json")
+_DATA_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "data")
+if not _os.path.exists(_DATA_DIR):
+    _os.makedirs(_DATA_DIR, exist_ok=True)
+_DEVICES_JSON = _os.path.join(_DATA_DIR, "devices.json")
+_PAIRINGS_JSON = _os.path.join(_DATA_DIR, "pairings.json")
 if _os.path.exists(_DEVICES_JSON):
     try:
         with open(_DEVICES_JSON, "r", encoding="utf-8") as _f:
             for _d in _json.load(_f):
-                DEVICES[_d["device_id"]] = {"name": _d["name"], "owner": _d["owner"]}
+                DEVICES[_d["device_id"]] = {"name": _d["name"], "owner": _d["owner"], "group": _d.get("group", "未分组")}
+    except:
+        pass
+
+# 加载设备配对关系
+if _os.path.exists(_PAIRINGS_JSON):
+    try:
+        with open(_PAIRINGS_JSON, "r", encoding="utf-8") as _f:
+            DEVICE_PAIRINGS.update(_json.load(_f))
     except:
         pass
 
@@ -70,7 +79,7 @@ VIOLATION_THRESHOLDS = {
 
 
 # ============ 4. 电价 ============
-ELECTRICITY_PRICE_PER_KWH = 0.55  # 元/度
+ELECTRICITY_PRICE_PER_KWH = 0.60  # 元/度
 
 
 # ============ 5. L1 配置 ============

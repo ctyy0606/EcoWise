@@ -59,10 +59,11 @@ def _get_weather_by_ip(client_ip=None):
         if not lat or not lon:
             return None
 
-        # 2. 获取实时天气（Open-Meteo 免费，无需key）
+        # 2. 获取实时天气（Open-Meteo 免费，无需key；禁用代理避免走阿里云代理）
         weather_resp = requests.get(
             f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true',
-            timeout=5
+            timeout=10,
+            proxies={"http": None, "https": None}
         )
         weather = weather_resp.json().get('current_weather', {})
         code = weather.get('weathercode', 0)
@@ -105,7 +106,8 @@ def _get_weather_by_coords(lat, lng):
     try:
         weather_resp = requests.get(
             f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lng}&current_weather=true",
-            timeout=5
+            timeout=10,
+            proxies={"http": None, "https": None}
         )
         weather = weather_resp.json().get("current_weather", {})
         if not weather:
@@ -131,7 +133,7 @@ def _get_weather_by_city(city_name):
     try:
         # 1. 地理编码
         geo_url = f'https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=zh&format=json'
-        geo_resp = requests.get(geo_url, timeout=5)
+        geo_resp = requests.get(geo_url, timeout=10, proxies={"http": None, "https": None})
         geo_data = geo_resp.json()
         results = geo_data.get('results', [])
         if not results:
@@ -143,7 +145,8 @@ def _get_weather_by_city(city_name):
         # 2. 获取天气
         weather_resp = requests.get(
             f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true',
-            timeout=5
+            timeout=10,
+            proxies={"http": None, "https": None}
         )
         weather = weather_resp.json().get('current_weather', {})
         code = weather.get('weathercode', 0)

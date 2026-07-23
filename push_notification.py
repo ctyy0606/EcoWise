@@ -189,12 +189,29 @@ def send_push_to_subscription(subscription, title, body, icon=None, badge=None, 
             "data": {"url": url or "/"},
         }
 
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps(payload),
-            vapid_private_key=get_vapid_private_key(),
-            vapid_claims=_get_claims(subscription.get("endpoint", "")),
-        )
+        # 推送服务（FCM/APNs/Mozilla等）不应该走阿里云代理，临时禁用代理环境变量
+        import os as _push_os
+        _saved_http = _push_os.environ.pop("HTTP_PROXY", None)
+        _saved_https = _push_os.environ.pop("HTTPS_PROXY", None)
+        _saved_http_lower = _push_os.environ.pop("http_proxy", None)
+        _saved_https_lower = _push_os.environ.pop("https_proxy", None)
+        try:
+            webpush(
+                subscription_info=subscription,
+                data=json.dumps(payload),
+                vapid_private_key=get_vapid_private_key(),
+                vapid_claims=_get_claims(subscription.get("endpoint", "")),
+                timeout=10,
+            )
+        finally:
+            if _saved_http is not None:
+                _push_os.environ["HTTP_PROXY"] = _saved_http
+            if _saved_https is not None:
+                _push_os.environ["HTTPS_PROXY"] = _saved_https
+            if _saved_http_lower is not None:
+                _push_os.environ["http_proxy"] = _saved_http_lower
+            if _saved_https_lower is not None:
+                _push_os.environ["https_proxy"] = _saved_https_lower
         return True, None
     except WebPushException as e:
         # 410 Gone 表示订阅已过期，应删除
