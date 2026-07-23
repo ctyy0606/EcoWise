@@ -976,7 +976,8 @@
             document.getElementById('tab-btn-' + tabName).classList.add('active');
 
             document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-            const targetTab = document.getElementById('tab-' + tabName);
+            const targetTab = document.getElementById('tab-' + tabName);
+
             // 模拟模式横幅只显示在设备管理tab
             const simBar = document.getElementById('simulation-bar');
             if (simBar) {
@@ -2081,7 +2082,7 @@
             }
             try {
                 const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 15000 });
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 20000, enableHighAccuracy: false });
                 });
                 userLocation = {
                     lat: position.coords.latitude,
@@ -2102,7 +2103,7 @@
                 let msg = '';
                 if (e.code === 1) msg = '位置访问被拒绝，请在浏览器设置中允许位置权限';
                 else if (e.code === 2) msg = '位置信息无法获取，请检查GPS/网络';
-                else if (e.code === 3) msg = '获取位置超时，请重试';
+                else if (e.code === 3) msg = '获取位置超时（已等待20秒）。请确保手机GPS已开启，或在开阔区域重试';
                 else msg = '获取位置失败，AI将使用默认城市查询天气。请确保浏览器已允许位置权限。';
                 customAlert(msg);
             }
@@ -2364,8 +2365,9 @@
                     b.style.borderColor = '#a4e4ce';
                 });
                 
-                const clickedBtn = event && event.target ? event.target : null;
-                if (clickedBtn && clickedBtn.tagName === 'BUTTON') {
+                // 根据场景名找到被点击的按钮并高亮
+                const clickedBtn = Array.from(allBtns).find(b => b.textContent.includes(sceneName));
+                if (clickedBtn) {
                     clickedBtn.style.background = '#2d5a40';
                     clickedBtn.style.color = 'white';
                     clickedBtn.style.fontWeight = 'bold';
@@ -2378,9 +2380,10 @@
                     body: JSON.stringify({scene: sceneName})
                 });
                 refreshData();
-            await customAlert('已切换到场景：' + sceneName);
+                customAlert('已切换到场景：' + sceneName);
             } catch (e) {       
                 console.error('场景切换失败:', e);
+                customAlert('场景切换失败: ' + (e.message || '未知错误'));
             }
         }
 
@@ -3108,13 +3111,13 @@
                     updatePushButton('subscribed');
                     customAlert('推送通知已开启！你可以关闭网页后仍能收到提醒。');
                     // 发送测试推送验证
-                    fetch('/api/push/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' }).catch(() => {});
+                    fetch('/api/push/send_test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' }).catch(() => {});
                 } else {
-                    customAlert('订阅失败：' + (saveData.message || '请先登录后再开启推送通知'));
+                    customAlert('订阅失败：' + (saveData.message || '请先登录后再开启推送通知。注意：推送需要HTTPS（已支持），且浏览器必须支持Web Push（Chrome/Edge推荐）'));
                 }
             } catch (error) {
                 console.error('订阅推送失败:', error);
-                customAlert('订阅推送失败：' + error.message);
+                customAlert('订阅推送失败：' + error.message + '。请确认：1) 使用Chrome/Edge浏览器 2) 已允许通知权限 3) 通过HTTPS访问');
             }
         }
 
