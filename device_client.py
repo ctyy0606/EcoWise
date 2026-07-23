@@ -8,14 +8,14 @@ from datetime import datetime
 import time
 import os as _os
 
-# 涂鸦 API 走阿里云代理中转（解决 Render 美国服务器跨区域访问问题）
-# 仅在 Render 环境设置代理，本地开发不走代理
-if _os.environ.get('RENDER') or _os.environ.get('PROXY_ENABLED'):
-    _os.environ["HTTPS_PROXY"] = "http://101.133.174.240:8888"
-    _os.environ["HTTP_PROXY"] = "http://101.133.174.240:8888"
-    print("[代理] 已启用阿里云代理: http://101.133.174.240:8888")
-else:
-    print("[代理] 本地环境，跳过代理设置")
+# 涂鸦 API 走阿里云代理中转（解决非中国 IP 跨区域访问问题）
+# 必须用环境变量方式设置，tuya_connector 的 session.proxies 不生效
+_os.environ["HTTPS_PROXY"] = "http://101.133.174.240:8888"
+_os.environ["HTTP_PROXY"] = "http://101.133.174.240:8888"
+print("[代理] 已启用阿里云代理: http://101.133.174.240:8888")
+
+# 代理地址常量（保留供参考）
+_TUYA_PROXY = "http://101.133.174.240:8888"
 
 from tuya_connector import TuyaOpenAPI
 
@@ -44,6 +44,9 @@ _openapi: Optional[TuyaOpenAPI] = None
 _last_connect_time: float = 0.0
 # Token 大约 2 小时过期，提前 10 分钟刷新
 TOKEN_REFRESH_SECONDS: float = 6600.0
+# 连接失败后的冷却时间（秒），防止连续重试刷爆API
+CONNECT_FAIL_COOLDOWN: float = 60.0
+_last_connect_fail_time: float = 0.0
 
 # 设备数据缓存，按设备ID存储，避免频繁调用涂鸦云 API
 # 格式: { device_id: { "data": {...}, "timestamp": float } }
@@ -53,8 +56,14 @@ CACHE_TTL_SECONDS: float = 3.0  # 3秒缓存，减少API调用
 
 def _get_openapi() -> TuyaOpenAPI:
     """获取(或首次创建)涂鸦云连接对象；token 快过期时自动刷新。"""
-    global _openapi, _last_connect_time
+    global _openapi, _last_connect_time, _last_connect_fail_time
     now = time.time()
+    
+    # 连接失败冷却期：60秒内不重试，直接抛异常
+    if _openapi is None and _last_connect_fail_time > 0:
+        if (now - _last_connect_fail_time) < CONNECT_FAIL_COOLDOWN:
+            raise RuntimeError(f"涂鸦云连接失败(冷却中，{CONNECT_FAIL_COOLDOWN - (now - _last_connect_fail_time):.0f}秒后重试)")
+    
     if _openapi is None or (now - _last_connect_time) > TOKEN_REFRESH_SECONDS:
         try:
             _openapi = TuyaOpenAPI(
@@ -62,20 +71,24 @@ def _get_openapi() -> TuyaOpenAPI:
                 config.ACCESS_ID,
                 config.ACCESS_SECRET,
             )
-            # 挂载超时适配器，每个 API 请求最多等 5 秒
-            _adapter = _TimeoutAdapter(default_timeout=_TUYA_TIMEOUT)
+            # 挂载超时适配器，每个 API 请求最多等 10 秒
+            _adapter = _TimeoutAdapter(default_timeout=10)
             _openapi.session.mount('https://', _adapter)
             _openapi.session.mount('http://', _adapter)
+            
             connect_resp = _openapi.connect()
-            if not connect_resp.get("success", False):
-                err_msg = connect_resp.get("msg", "未知错误")
-                err_code = connect_resp.get("code", "?")
-                raise RuntimeError(f"涂鸦云连接失败(code={err_code}): {err_msg}")
-            _last_connect_time = now
-            print(f"[涂鸦云] 已建立连接 (token 刷新)")
+            if connect_resp.get("success", False):
+                print(f"[涂鸦云] 连接成功")
+                _last_connect_time = now
+                _last_connect_fail_time = 0.0
+                return _openapi
+            err_msg = connect_resp.get("msg", "未知错误")
+            err_code = connect_resp.get("code", "?")
+            raise RuntimeError(f"涂鸦云连接失败(code={err_code}): {err_msg}")
         except Exception as e:
             print(f"[涂鸦云] 连接失败: {e}")
             _openapi = None
+            _last_connect_fail_time = now
             raise e
     return _openapi
 
