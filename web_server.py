@@ -762,7 +762,7 @@ def api_ai():
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         user_lat = session.get('user_lat')
         user_lng = session.get('user_lng')
-        print(f"[AI] User={owner}, Phone={phone}, Message={message[:80]}...")
+        print(f"[AI] User={owner}, Phone={phone}, SessionHasLocation={'YES' if (user_lat and user_lng) else 'NO'}, lat={user_lat}, lng={user_lng}, Message={message[:80]}...")
         reply = ai_agent.chat(message, owner, client_ip=client_ip, history=history, user_lat=user_lat, user_lng=user_lng, phone=phone)
         if not reply or not reply.strip():
             print(f"[AI] Empty reply received from ai_agent.chat()")

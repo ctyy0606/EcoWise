@@ -442,9 +442,20 @@ def get_all_devices(include_paired_boards=True) -> list:
 
             paired_board_id = config.DEVICE_PAIRINGS.get(device_id)
             if paired_board_id and paired_board_id in config.DEVICES:
-                sensor_data = _get_sensor_data(paired_board_id)
-                device_data["temperature_c"] = sensor_data.get("temperature_c")
-                device_data["humidity_percent"] = sensor_data.get("humidity_percent")
+                # 先检查开发板是否在线，离线则不应显示其温湿度数据
+                try:
+                    board_info = get_device_data(paired_board_id)
+                    board_online = board_info.get("online", False)
+                except Exception:
+                    board_online = False
+                if board_online:
+                    sensor_data = _get_sensor_data(paired_board_id)
+                    device_data["temperature_c"] = sensor_data.get("temperature_c")
+                    device_data["humidity_percent"] = sensor_data.get("humidity_percent")
+                else:
+                    device_data["temperature_c"] = None
+                    device_data["humidity_percent"] = None
+                    print(f"[device_client] 配对的开发板 {paired_board_id} 离线，不显示温湿度")
 
             is_paired_as_board = device_id in paired_devices
             if is_paired_as_board:

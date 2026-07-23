@@ -1037,8 +1037,9 @@
                 if (reportStepSpace) reportStepSpace.style.display = 'none';
                 const aiInput = document.getElementById('ai-input');
                 if (aiInput) aiInput.value = '';
+                // 保留聊天记录：仅在没有实际对话时显示欢迎消息
                 const aiChat = document.getElementById('ai-chat');
-                if (aiChat) {
+                if (aiChat && aiChatHistory.length === 0) {
                     aiChat.innerHTML = '<div class="ai-message assistant"><div class="ai-bubble assistant">你好！我是 EcoWise AI 助手，可以帮你查询用电情况、分析用电习惯、回答关于宿舍用电的问题。</div></div>';
                 }
             }
@@ -3233,6 +3234,15 @@
                 return;
             }
 
+            // 从 SW 恢复订阅状态（防止页面刷新后变量丢失）
+            if (!currentPushSubscription && swRegistration) {
+                try {
+                    currentPushSubscription = await swRegistration.pushManager.getSubscription();
+                    if (currentPushSubscription) {
+                        updatePushButton('subscribed');
+                    }
+                } catch(e) {}
+            }
             if (!currentPushSubscription) {
                 await subscribeToPush();
             } else {

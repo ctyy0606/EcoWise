@@ -78,7 +78,8 @@ def _get_weather_by_ip(client_ip=None):
         }
         _weather_cache[cache_key] = (result, time.time() + WEATHER_CACHE_SECONDS)
         return result
-    except Exception:
+    except Exception as e:
+        print(f"[天气API] _get_weather_by_ip 异常 (ip={client_ip}): {e}")
         return None
 
 # 常见城市名，用于从用户消息中提取
@@ -107,6 +108,9 @@ def _get_weather_by_coords(lat, lng):
             timeout=5
         )
         weather = weather_resp.json().get("current_weather", {})
+        if not weather:
+            print(f"[天气API] Open-Meteo 返回空数据: {weather_resp.text[:200]}")
+            return None
         code = weather.get("weathercode", 0)
         weather_desc = WEATHER_CODES.get(code, "未知")
         temp = weather.get("temperature", 0)
@@ -117,7 +121,8 @@ def _get_weather_by_coords(lat, lng):
             "temp": temp,
             "wind": wind,
         }
-    except Exception:
+    except Exception as e:
+        print(f"[天气API] _get_weather_by_coords 异常 (lat={lat},lng={lng}): {e}")
         return None
 
 
@@ -152,7 +157,8 @@ def _get_weather_by_city(city_name):
             'temp': temp,
             'wind': wind,
         }
-    except Exception:
+    except Exception as e:
+        print(f"[天气API] _get_weather_by_city 异常 (city={city_name}): {e}")
         return None
 
 
@@ -484,10 +490,22 @@ def chat(user_message, owner=None, client_ip=None, history=None, user_lat=None, 
         weather = None
         if user_lat is not None and user_lng is not None:
             weather = _get_weather_by_coords(user_lat, user_lng)
+            if weather:
+                print(f"[AI天气] 通过用户坐标获取天气成功: {weather['city']} {weather['weather']} {weather['temp']}°C")
+            else:
+                print(f"[AI天气] 通过用户坐标获取天气失败 (lat={user_lat}, lng={user_lng})，尝试城市名")
         if not weather and city:
             weather = _get_weather_by_city(city)
+            if weather:
+                print(f"[AI天气] 通过城市名获取天气成功: {weather['city']} {weather['weather']}")
+            else:
+                print(f"[AI天气] 通过城市名获取天气失败 (city={city})，尝试IP")
         if not weather:
             weather = _get_weather_by_ip(client_ip)
+            if weather:
+                print(f"[AI天气] 通过IP获取天气成功: {weather['city']} {weather['weather']}")
+            else:
+                print(f"[AI天气] 通过IP获取天气失败 (ip={client_ip})，无法获取天气")
         if weather:
             weather_info = f"【当前天气】{weather['city']}，{weather['weather']}，气温{weather['temp']}°C，风速{weather['wind']}km/h"
         else:

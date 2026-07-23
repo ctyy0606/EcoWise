@@ -18,8 +18,17 @@ import time
 import re
 from datetime import datetime, timedelta, date
 
+# 统一使用中国时区（避免服务器部署在海外导致时差问题）
+try:
+    from zoneinfo import ZoneInfo
+    CHINA_TZ = ZoneInfo("Asia/Shanghai")
+except ImportError:
+    # Python 3.8 以下使用 pytz
+    import pytz
+    CHINA_TZ = pytz.timezone("Asia/Shanghai")
+
 DB_PATH = os.path.join(
-    os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))),
+    os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))),  
     "Ecowise", "energy_log.db"
 )
 
@@ -64,11 +73,11 @@ def _get_db():
 
 
 def _now_str():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(CHINA_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _today_str():
-    return date.today().strftime("%Y-%m-%d")
+    return datetime.now(CHINA_TZ).strftime("%Y-%m-%d")
 
 
 def add_memo(user_phone, memo_date, memo_time, content):
@@ -86,7 +95,7 @@ def add_memo(user_phone, memo_date, memo_time, content):
     try:
         # 验证日期时间格式
         dt = datetime.strptime(f"{memo_date} {memo_time}", "%Y-%m-%d %H:%M")
-        if dt < datetime.now():
+        if dt < datetime.now(CHINA_TZ):
             return {"success": False, "message": "提醒时间不能早于当前时间", "id": None}
 
         conn = _get_db()
@@ -251,8 +260,8 @@ def parse_memo_from_text(text):
     if not has_keyword:
         return {"has_memo": False, "memo_date": None, "memo_time": None, "content": None, "default_time_used": False}
 
-    now = datetime.now()
-    today = date.today()
+    now = datetime.now(CHINA_TZ)
+    today = now.date()
     memo_date = None
     memo_time = None
     default_time_used = False

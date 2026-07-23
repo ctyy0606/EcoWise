@@ -15,6 +15,14 @@ import time
 import re
 from datetime import datetime, timedelta
 
+# 统一使用中国时区
+try:
+    from zoneinfo import ZoneInfo
+    CHINA_TZ = ZoneInfo("Asia/Shanghai")
+except ImportError:
+    import pytz
+    CHINA_TZ = pytz.timezone("Asia/Shanghai")
+
 DB_PATH = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", os.path.expanduser("~"))), "Ecowise", "energy_log.db")
 
 
@@ -43,7 +51,7 @@ def _get_db():
 
 
 def _now_str():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(CHINA_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def add_alarm(user_phone, remind_at, message):
@@ -60,7 +68,7 @@ def add_alarm(user_phone, remind_at, message):
     try:
         # 验证时间格式
         dt = datetime.strptime(remind_at, "%Y-%m-%d %H:%M")
-        if dt < datetime.now():
+        if dt < datetime.now(CHINA_TZ):
             return {"success": False, "message": "提醒时间不能早于当前时间", "id": None}
 
         conn = _get_db()
@@ -166,7 +174,7 @@ def parse_alarm_from_text(text):
     if not has_alarm:
         return {"has_alarm": False, "remind_at": None, "message": None}
 
-    now = datetime.now()
+    now = datetime.now(CHINA_TZ)
 
     # 提取时间信息
     remind_at = None
