@@ -44,11 +44,17 @@ self.addEventListener('fetch', event => {
         );
     }
     // 对静态资源使用缓存优先
-    else {
+    else if (event.request.destination !== '') {
         event.respondWith(
             caches.match(event.request)
                 .then(response => response || fetch(event.request))
+                .catch(() => new Response('', { status: 408 }))
         );
+    }
+    // 其他请求（如 manifest、font 等）直接走网络
+    else {
+        // 不拦截，让浏览器正常处理
+        return;
     }
 });
 
