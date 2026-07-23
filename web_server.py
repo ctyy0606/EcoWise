@@ -6,6 +6,14 @@ EcoWise 宿舍助理 - Flask 网页版服务器
     python web_server.py
 然后在手机浏览器访问: http://电脑IP:5000
 """
+import sys
+# 强制 UTF-8 编码，防止 Windows GBK 编码导致 UnicodeEncodeError
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 from flask import Flask, render_template, jsonify, request, session, Response, make_response
 from werkzeug.middleware.proxy_fix import ProxyFix
 from functools import wraps
@@ -1647,7 +1655,7 @@ if __name__ == '__main__':
     print("运行地址: http://localhost:5000")
     print("手机访问: http://你的电脑IP:5000")
     print("="*50)
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False, threaded=True)
 
 
 def init_app():

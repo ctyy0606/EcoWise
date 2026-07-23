@@ -21,6 +21,9 @@ from tuya_connector import TuyaOpenAPI
 
 import config
 
+# 为 Tuya API 请求设置超时（秒），防止在非测试模式下挂起
+_TUYA_TIMEOUT = 8  # 秒
+
 
 _openapi: Optional[TuyaOpenAPI] = None
 _last_connect_time: float = 0.0

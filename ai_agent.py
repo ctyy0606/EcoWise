@@ -4,6 +4,13 @@ EcoWise 宿舍助理 - AI 智能体模块
 调用通义千问大模型，结合实时用电数据回答用户问题。
 系统提示词定义了"小E"的人设，每次对话自动注入当前用电数据作为上下文。
 """
+import sys
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 import requests
 import time
 import json
